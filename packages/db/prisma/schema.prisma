@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Processor {
+  RAZORPAY
+  STRIPE
+}
+
+enum RecoveryCaseStatus {
+  OPEN
+  RECOVERED
+  GIVEN_UP
+}
+
+model Merchant {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  processor Processor @default(RAZORPAY)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  customers     Customer[]
+  subscriptions Subscription[]
+  paymentEvents PaymentEvent[]
+  recoveryCases RecoveryCase[]
+}
+
+model Customer {
+  id                  String   @id @default(cuid())
+  merchantId          String
+  merchant            Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  processorCustomerId String?
+  name                String?
+  email               String?
+  phone               String?
+  locale              String   @default("en")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  subscriptions Subscription[]
+  recoveryCases RecoveryCase[]
+
+  @@unique([merchantId, processorCustomerId])
+  @@index([merchantId])
+}
+
+model Subscription {
+  id                      String   @id @default(cuid())
+  merchantId              String
+  merchant                Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId              String
+  customer                Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  processorSubscriptionId String?
+  status                  String?
+  amount                  Int?
+  currency                String   @default("INR")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  recoveryCases RecoveryCase[]
+
+  @@index([merchantId])
+  @@index([customerId])
+}
+
+model PaymentEvent {
+  id                  String   @id
+  merchantId          String
+  merchant            Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  processorCustomerId String?
+  eventType           String
+  amount              Int?
+  currency            String?
+  failureReason       String?
+  raw                 Json?
+  receivedAt          DateTime @default(now())
+
+  recoveryCases RecoveryCase[]
+
+  @@index([merchantId])
+  @@index([eventType])
+}
+
+model RecoveryCase {
+  id             String             @id @default(cuid())
+  merchantId     String
+  merchant       Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  paymentEventId String?
+  paymentEvent   PaymentEvent?      @relation(fields: [paymentEventId], references: [id], onDelete: SetNull)
+  amount         Int?
+  currency       String             @default("INR")
+  status         RecoveryCaseStatus @default(OPEN)
+  token          String             @unique @default(cuid())
+  createdAt      DateTime           @default(now())
+  recoveredAt    DateTime?
+  updatedAt      DateTime           @updatedAt
+
+  @@index([merchantId, status])
+  @@index([customerId])
+}

@@ -108,21 +108,36 @@ model Subscription {
 }
 
 model PaymentEvent {
-  id                  String   @id
-  merchantId          String
-  merchant            Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  processorCustomerId String?
-  eventType           String
-  amount              Int?
-  currency            String?
-  failureReason       String?
-  raw                 Json?
-  receivedAt          DateTime @default(now())
+  id                String    @id @default(cuid())
+  provider          String
+  providerEventId   String
+  eventType         String
+  merchantId        String?
+  merchant          Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  payload           Json
+  signatureVerified Boolean
+  eventTime         DateTime?
+  receivedAt        DateTime  @default(now())
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   recoveryCases RecoveryCase[]
 
+  @@index([provider, providerEventId])
   @@index([merchantId])
   @@index([eventType])
+}
+
+model WebhookReceipt {
+  id         String    @id @default(cuid())
+  provider   String
+  eventId    String
+  eventType  String?
+  eventTime  DateTime?
+  receivedAt DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+
+  @@unique([provider, eventId])
 }
 
 model RecoveryCase {

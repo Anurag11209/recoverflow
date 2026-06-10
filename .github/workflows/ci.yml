@@ -20,6 +20,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      RAZORPAY_WEBHOOK_SECRET: whsec_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -47,6 +48,7 @@ jobs:
           cat > .env <<'ENVEOF'
           DATABASE_URL=postgresql://ci:ci@localhost:5432/recoverflow?schema=public
           NEXT_PUBLIC_APP_URL=http://localhost:3000
+          RAZORPAY_WEBHOOK_SECRET=whsec_ci
           ENVEOF
       - name: Build
         run: pnpm build
@@ -71,6 +73,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://recoverflow:recoverflow@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
+      RAZORPAY_WEBHOOK_SECRET: whsec_ci
     steps:
       - name: Checkout
         uses: actions/checkout@v5

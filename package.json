@@ -16,10 +16,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:env": "dotenv -e .env -- tsx packages/shared/src/check-env.ts",
-    "db:generate": "pnpm --filter @recoverflow/db generate",
-    "db:migrate": "pnpm --filter @recoverflow/db migrate",
-    "db:deploy": "pnpm --filter @recoverflow/db deploy",
-    "db:studio": "pnpm --filter @recoverflow/db studio",
+    "db:generate": "pnpm --filter @recoverflow/db run generate",
+    "db:migrate": "pnpm --filter @recoverflow/db run migrate",
+    "db:deploy": "pnpm --filter @recoverflow/db run deploy",
+    "db:studio": "pnpm --filter @recoverflow/db run studio",
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "devDependencies": {

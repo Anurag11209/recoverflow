@@ -27,3 +27,12 @@ export async function verifyPassword(passwordHash: string, password: string): Pr
     return false;
   }
 }
+
+/**
+ * A real argon2id hash of a random string, used to equalize timing on login
+ * when the email doesn't exist — we always run one verify(), so a missing user
+ * and a wrong password are indistinguishable by response time. It never matches
+ * any real password.
+ */
+export const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=19456,t=2,p=1$i5TeBBUBXey4U5erQPVUHg$j2R4IlZvHqBZx3ryQfmDJeZ7W+JVHLprdDmXdDSqCuU';

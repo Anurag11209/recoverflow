@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@recoverflow/db', '@recoverflow/shared', '@recoverflow/recovery-engine'],
   // Keep native/worker-using packages out of the server bundle.
-  serverExternalPackages: ['@prisma/client', 'pino', 'pino-pretty'],
+  serverExternalPackages: ['@prisma/client', 'pino', 'pino-pretty', '@node-rs/argon2'],
   outputFileTracingRoot: resolve(process.cwd(), '../../'),
 };
 

@@ -18,51 +18,74 @@ jobs:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     env:
-      # Used by main-process steps (e.g. prisma generate). NOT inherited by
-      # next build's page-data workers — see the "Write .env for build" step.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
-
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
       - name: Generate Prisma client
         run: pnpm db:generate
-
       - name: Check formatting
         run: pnpm format:check
-
       - name: Lint
         run: pnpm lint
-
       - name: Typecheck
         run: pnpm typecheck
-
       - name: Test
         run: pnpm test
-
       - name: Write .env for build
-        # next build re-evaluates next.config.ts inside page-data workers, which
-        # load the repo-root .env via dotenv. This is how DATABASE_URL reaches
-        # those workers (job-level env vars are not forwarded into them). The
-        # build never opens a DB connection, so placeholder values are safe.
         run: |
           cat > .env <<'ENVEOF'
           DATABASE_URL=postgresql://ci:ci@localhost:5432/recoverflow?schema=public
           NEXT_PUBLIC_APP_URL=http://localhost:3000
           ENVEOF
-
       - name: Build
         run: pnpm build
+
+  integration:
+    name: Integration tests (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: recoverflow
+          POSTGRES_PASSWORD: recoverflow
+          POSTGRES_DB: recoverflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U recoverflow -d recoverflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://recoverflow:recoverflow@localhost:5432/recoverflow?schema=public
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm db:generate
+      - name: Apply migrations
+        run: pnpm db:deploy
+      - name: Integration tests
+        run: pnpm test:integration

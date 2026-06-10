@@ -18,10 +18,8 @@ jobs:
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     env:
-      # Placeholder values so env validation and `prisma generate` are satisfied.
-      # The build never opens a DB connection (dynamic routes aren't executed at
-      # build time), so a dummy URL is safe. Real secrets are injected at deploy
-      # time (Phase 9), never committed.
+      # Used by main-process steps (e.g. prisma generate). NOT inherited by
+      # next build's page-data workers — see the "Write .env for build" step.
       DATABASE_URL: postgresql://ci:ci@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     steps:
@@ -54,6 +52,17 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Write .env for build
+        # next build re-evaluates next.config.ts inside page-data workers, which
+        # load the repo-root .env via dotenv. This is how DATABASE_URL reaches
+        # those workers (job-level env vars are not forwarded into them). The
+        # build never opens a DB connection, so placeholder values are safe.
+        run: |
+          cat > .env <<'ENVEOF'
+          DATABASE_URL=postgresql://ci:ci@localhost:5432/recoverflow?schema=public
+          NEXT_PUBLIC_APP_URL=http://localhost:3000
+          ENVEOF
 
       - name: Build
         run: pnpm build

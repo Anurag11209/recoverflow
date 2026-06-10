@@ -19,6 +19,11 @@ enum RecoveryCaseStatus {
   GIVEN_UP
 }
 
+enum UserRole {
+  OWNER
+  MEMBER
+}
+
 model Merchant {
   id        String    @id @default(cuid())
   name      String
@@ -27,10 +32,41 @@ model Merchant {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  users         User[]
   customers     Customer[]
   subscriptions Subscription[]
   paymentEvents PaymentEvent[]
   recoveryCases RecoveryCase[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  merchantId   String
+  merchant     Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(OWNER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions Session[]
+
+  @@index([merchantId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Customer {

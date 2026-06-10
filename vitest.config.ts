@@ -11,6 +11,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: 'postgresql://localhost:5432/recoverflow_test',
       NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+      RAZORPAY_WEBHOOK_SECRET: 'whsec_test_unit',
     },
   },
 });

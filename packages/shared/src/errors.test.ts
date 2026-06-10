@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AppError, NotFoundError, ValidationError, toErrorResponse } from './errors';
+import {
+  AppError,
+  NotFoundError,
+  ValidationError,
+  UnauthorizedError,
+  ForbiddenError,
+  ConflictError,
+  toErrorResponse,
+} from './errors';
 
 describe('AppError', () => {
   it('applies sensible defaults', () => {
@@ -43,5 +51,24 @@ describe('toErrorResponse', () => {
       status: 500,
       body: { error: { code: 'INTERNAL_ERROR', message: 'Internal server error' } },
     });
+  });
+});
+
+describe('phase 2 errors', () => {
+  it('UnauthorizedError -> 401 / UNAUTHORIZED', () => {
+    const e = new UnauthorizedError();
+    expect(e.status).toBe(401);
+    expect(e.code).toBe('UNAUTHORIZED');
+  });
+  it('ForbiddenError -> 403 / FORBIDDEN', () => {
+    const e = new ForbiddenError();
+    expect(e.status).toBe(403);
+    expect(e.code).toBe('FORBIDDEN');
+  });
+  it('ConflictError -> 409 / CONFLICT', () => {
+    const e = new ConflictError('email in use');
+    expect(e.status).toBe(409);
+    expect(e.code).toBe('CONFLICT');
+    expect(e.message).toBe('email in use');
   });
 });

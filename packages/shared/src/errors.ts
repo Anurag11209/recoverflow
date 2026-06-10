@@ -51,6 +51,42 @@ export class ValidationError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AppError {
+  constructor(
+    message = 'Authentication required',
+    options: { code?: string; cause?: unknown } = {},
+  ) {
+    super(message, {
+      code: options.code ?? 'UNAUTHORIZED',
+      status: 401,
+      isOperational: true,
+      cause: options.cause,
+    });
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = 'Forbidden', options: { code?: string; cause?: unknown } = {}) {
+    super(message, {
+      code: options.code ?? 'FORBIDDEN',
+      status: 403,
+      isOperational: true,
+      cause: options.cause,
+    });
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(message = 'Conflict', options: { code?: string; cause?: unknown } = {}) {
+    super(message, {
+      code: options.code ?? 'CONFLICT',
+      status: 409,
+      isOperational: true,
+      cause: options.cause,
+    });
+  }
+}
+
 // Pure mapping from any thrown value to an HTTP status + response envelope.
 // Lives here (not in the app) so it's testable without the framework, and so
 // every entrypoint maps errors identically.

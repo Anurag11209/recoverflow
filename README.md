@@ -33,11 +33,16 @@ pnpm test
 - `apps/web` — Next.js 15 app (health + readiness routes)
 - `packages/shared` — Zod env validation (server-only)
 - `packages/db` — Prisma schema + client singleton
-- `packages/recovery-engine` — domain package boundary (logic lands in Phase 5)
+- `packages/recovery-engine` — dunning/recovery domain logic (classification, attempts, messaging, payment-update; no DB/framework imports)
 
 ## Phase status
 
-Phase 1 (project setup) complete. Auth, Razorpay, WhatsApp, and recovery logic are later phases.
+Phases 1–8 complete. The product has merchant auth, per-merchant Razorpay webhook
+attribution, the recovery (dunning) engine, WhatsApp messaging, the customer
+payment-update flow, and a full merchant dashboard (overview, cases list + detail,
+analytics, shared navigation). A security audit (`docs/auth-audit.md`) and a
+performance pass (`docs/performance-review.md`) are on record; see
+`docs/phase8-closeout.md` for the Phase 8 summary. Phase 9 (billing + deploy) is next.
 
 ## Error handling & logging
 

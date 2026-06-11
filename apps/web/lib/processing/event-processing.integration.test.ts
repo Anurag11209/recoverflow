@@ -3,10 +3,13 @@ import { prisma } from '@recoverflow/db';
 import { processPaymentEvent } from '@recoverflow/recovery-engine';
 import { logger } from '@recoverflow/shared';
 import { createProcessingStore } from './store';
+import { createRecoveryStore } from '../recovery/store';
 
 // FK-safe order. EventProcessing/IdempotencyRecord first, then PaymentEvent
 // (EventProcessing references PaymentEvent; IdempotencyRecord is standalone).
 async function clean() {
+  await prisma.recoveryAttempt.deleteMany();
+  await prisma.recoveryCase.deleteMany();
   await prisma.eventProcessing.deleteMany();
   await prisma.idempotencyRecord.deleteMany();
   await prisma.paymentEvent.deleteMany();
@@ -40,7 +43,7 @@ describe('event processing (integration)', () => {
   it('pending -> success: processes once, records idempotency, marks SUCCESS', async () => {
     const peId = await seedEvent({ providerEventId: 'evt_a' });
 
-    const outcome = await processPaymentEvent(store, logger, peId);
+    const outcome = await processPaymentEvent(store, createRecoveryStore(), logger, peId);
     expect(outcome.status).toBe('SUCCESS');
 
     const ep = await prisma.eventProcessing.findUniqueOrThrow({ where: { paymentEventId: peId } });
@@ -54,8 +57,8 @@ describe('event processing (integration)', () => {
   it('duplicate processing blocked: second run is SKIPPED already_succeeded, still one row', async () => {
     const peId = await seedEvent({ providerEventId: 'evt_b' });
 
-    const first = await processPaymentEvent(store, logger, peId);
-    const second = await processPaymentEvent(store, logger, peId);
+    const first = await processPaymentEvent(store, createRecoveryStore(), logger, peId);
+    const second = await processPaymentEvent(store, createRecoveryStore(), logger, peId);
 
     expect(first.status).toBe('SUCCESS');
     expect(second).toEqual({ status: 'SKIPPED', reason: 'already_succeeded' });
@@ -67,12 +70,12 @@ describe('event processing (integration)', () => {
 
   it('idempotency enforced: a different event with the same providerEventId does not double-write the ledger', async () => {
     const peId1 = await seedEvent({ providerEventId: 'evt_shared' });
-    await processPaymentEvent(store, logger, peId1);
+    await processPaymentEvent(store, createRecoveryStore(), logger, peId1);
     expect(await prisma.idempotencyRecord.count()).toBe(1);
 
     // A distinct PaymentEvent row, same provider event identity (e.g. reingested).
     const peId2 = await seedEvent({ providerEventId: 'evt_shared' });
-    const outcome = await processPaymentEvent(store, logger, peId2);
+    const outcome = await processPaymentEvent(store, createRecoveryStore(), logger, peId2);
 
     // The handler runs and the ledger write hits the unique (provider,eventId)
     // constraint -> treated as already_recorded -> still SUCCESS, but the ledger

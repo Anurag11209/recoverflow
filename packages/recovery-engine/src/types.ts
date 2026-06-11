@@ -21,6 +21,7 @@ export interface LoadedEvent {
   provider: string;
   providerEventId: string;
   eventType: string;
+  payload: unknown;
 }
 
 /** Outcome of attempting to claim an event for processing. */

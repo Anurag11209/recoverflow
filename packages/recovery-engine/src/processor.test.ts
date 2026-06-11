@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { processPaymentEvent } from './processor';
+import type { RecoveryStore } from './recovery/types';
 import type { ClaimResult, LoadedEvent, ProcessingStore } from './types';
 
 interface Row {
@@ -47,6 +48,32 @@ function makeFakeStore(seed: LoadedEvent[]) {
   };
   return { store, rows, ledger };
 }
+
+const recoveryStoreStub: RecoveryStore = {
+  async findCaseByPaymentEventId() {
+    return null;
+  },
+  async createCase() {
+    return { id: 'c', paymentEventId: 'pe', status: 'OPEN', failureCategory: null };
+  },
+  async createAttempt() {
+    return {
+      id: 'a',
+      recoveryCaseId: 'c',
+      attemptNumber: 1,
+      status: 'PENDING',
+      scheduledAt: new Date(),
+    };
+  },
+  async findAttempt() {
+    return null;
+  },
+  async updateCaseStatus() {},
+  async listCases() {
+    return [];
+  },
+};
+
 const nullLogger = () => ({ info() {}, error() {} });
 
 const EV: LoadedEvent = {
@@ -59,7 +86,7 @@ const EV: LoadedEvent = {
 describe('processPaymentEvent', () => {
   it('drives PENDING -> SUCCESS and writes the idempotency ledger', async () => {
     const { store, rows, ledger } = makeFakeStore([EV]);
-    const r = await processPaymentEvent(store, nullLogger(), 'pe_1');
+    const r = await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1');
     expect(r.status).toBe('SUCCESS');
     expect(rows.get('pe_1')!.status).toBe('SUCCESS');
     expect(rows.get('pe_1')!.attempts).toBe(1);
@@ -68,7 +95,7 @@ describe('processPaymentEvent', () => {
 
   it('returns SKIPPED not_found for an unknown event id', async () => {
     const { store } = makeFakeStore([]);
-    const r = await processPaymentEvent(store, nullLogger(), 'missing');
+    const r = await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'missing');
     expect(r).toEqual({ status: 'SKIPPED', reason: 'not_found' });
   });
 
@@ -77,7 +104,7 @@ describe('processPaymentEvent', () => {
     store.recordIdempotency = async () => {
       throw new Error('boom');
     };
-    const r = await processPaymentEvent(store, nullLogger(), 'pe_1');
+    const r = await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1');
     expect(r.status).toBe('FAILED');
     if (r.status === 'FAILED') expect(r.error).toBe('boom');
     expect(rows.get('pe_1')!.status).toBe('FAILED');
@@ -88,7 +115,7 @@ describe('processPaymentEvent', () => {
     const { store, rows } = makeFakeStore([EV]);
     rows.get('pe_1')!.status = 'FAILED';
     rows.get('pe_1')!.attempts = 1;
-    const r = await processPaymentEvent(store, nullLogger(), 'pe_1');
+    const r = await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1');
     expect(r.status).toBe('SUCCESS');
     expect(rows.get('pe_1')!.attempts).toBe(2);
   });
@@ -96,8 +123,8 @@ describe('processPaymentEvent', () => {
   it('concurrency: two simultaneous workers, only one processes', async () => {
     const { store, rows, ledger } = makeFakeStore([EV]);
     const [a, b] = await Promise.all([
-      processPaymentEvent(store, nullLogger(), 'pe_1'),
-      processPaymentEvent(store, nullLogger(), 'pe_1'),
+      processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1'),
+      processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1'),
     ]);
     const statuses = [a.status, b.status].sort();
     expect(statuses).toEqual(['SKIPPED', 'SUCCESS']);
@@ -107,8 +134,8 @@ describe('processPaymentEvent', () => {
 
   it('an already-SUCCESS event is SKIPPED already_succeeded on reprocess', async () => {
     const { store } = makeFakeStore([EV]);
-    await processPaymentEvent(store, nullLogger(), 'pe_1');
-    const again = await processPaymentEvent(store, nullLogger(), 'pe_1');
+    await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1');
+    const again = await processPaymentEvent(store, recoveryStoreStub, nullLogger(), 'pe_1');
     expect(again).toEqual({ status: 'SKIPPED', reason: 'already_succeeded' });
   });
 });

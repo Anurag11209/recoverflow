@@ -15,7 +15,7 @@ export function createProcessingStore(): ProcessingStore {
     async loadEvent(paymentEventId: string): Promise<LoadedEvent | null> {
       const e = await prisma.paymentEvent.findUnique({
         where: { id: paymentEventId },
-        select: { id: true, provider: true, providerEventId: true, eventType: true },
+        select: { id: true, provider: true, providerEventId: true, eventType: true, payload: true },
       });
       return e ?? null;
     },

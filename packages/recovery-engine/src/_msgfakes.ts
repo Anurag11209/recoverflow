@@ -8,7 +8,11 @@ export function fakeMessageStore(): MessageStore {
   let seq = 0;
   return {
     async createMessageLog(input) {
-      if (byAttempt.has(input.recoveryAttemptId)) throw { code: 'P2002' };
+      // Partial-unique semantics: dedup only on NON-null attemptId. Null-attempt
+      // messages (recovered/reminder) are unconstrained, matching the DB.
+      if (input.recoveryAttemptId !== null && byAttempt.has(input.recoveryAttemptId)) {
+        throw { code: 'P2002' };
+      }
       const rec: MessageLogRecord = {
         id: `msg_${++seq}`,
         recoveryCaseId: input.recoveryCaseId,
@@ -19,7 +23,7 @@ export function fakeMessageStore(): MessageStore {
         providerMessageId: null,
       };
       logs.set(rec.id, rec);
-      byAttempt.set(input.recoveryAttemptId, rec.id);
+      if (input.recoveryAttemptId !== null) byAttempt.set(input.recoveryAttemptId, rec.id);
       return rec;
     },
     async findMessageByAttemptId(id) {

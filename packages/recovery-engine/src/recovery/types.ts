@@ -52,5 +52,7 @@ export interface RecoveryStore {
   createAttempt(input: NewAttemptInput): Promise<RecoveryAttemptRecord>;
   findAttempt(recoveryCaseId: string, attemptNumber: number): Promise<RecoveryAttemptRecord | null>;
   updateCaseStatus(caseId: string, status: RecoveryStatus): Promise<void>;
+  /** Mark a case RECOVERED and record the recovered amount + timestamp (Phase 7). */
+  markRecovered(caseId: string, recoveredAmount: number, recoveredAt: Date): Promise<void>;
   listCases(limit?: number): Promise<RecoveryCaseRecord[]>;
 }

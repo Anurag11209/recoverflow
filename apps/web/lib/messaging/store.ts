@@ -28,6 +28,7 @@ export function createMessageStore(): MessageStore {
         data: {
           recoveryCaseId: input.recoveryCaseId,
           recoveryAttemptId: input.recoveryAttemptId,
+          messageType: input.messageType,
           provider: input.provider,
           templateName: input.templateName,
           recipientPhone: input.recipientPhone,

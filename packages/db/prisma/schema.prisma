@@ -26,12 +26,13 @@ model Merchant {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  users         User[]
-  customers     Customer[]
-  subscriptions Subscription[]
-  paymentEvents PaymentEvent[]
-  recoveryCases RecoveryCase[]
-  messageLogs   MessageLog[]
+  users               User[]
+  customers           Customer[]
+  subscriptions       Subscription[]
+  paymentEvents       PaymentEvent[]
+  recoveryCases       RecoveryCase[]
+  messageLogs         MessageLog[]
+  paymentUpdateTokens PaymentUpdateToken[]
 }
 
 model User {
@@ -169,12 +170,14 @@ model RecoveryCase {
   failureCategory   String?
   status            RecoveryStatus @default(OPEN)
   token             String         @unique @default(cuid())
+  recoveredAmount   Decimal?
   createdAt         DateTime       @default(now())
   recoveredAt       DateTime?
   updatedAt         DateTime       @updatedAt
 
-  attempts    RecoveryAttempt[]
-  messageLogs MessageLog[]
+  attempts            RecoveryAttempt[]
+  messageLogs         MessageLog[]
+  paymentUpdateTokens PaymentUpdateToken[]
 
   @@index([merchantId, status])
   @@index([customerId])
@@ -192,7 +195,7 @@ model RecoveryAttempt {
   failureReason  String?
   createdAt      DateTime      @default(now())
 
-  messageLog MessageLog?
+  messageLogs MessageLog[]
 
   @@unique([recoveryCaseId, attemptNumber])
   @@index([status, scheduledAt])
@@ -205,26 +208,49 @@ enum MessageStatus {
   FAILED
 }
 
+enum MessageType {
+  PAYMENT_FAILED
+  PAYMENT_REMINDER
+  PAYMENT_RECOVERED
+}
+
 model MessageLog {
-  id                String          @id @default(cuid())
+  id                String           @id @default(cuid())
   merchantId        String?
-  merchant          Merchant?       @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  merchant          Merchant?        @relation(fields: [merchantId], references: [id], onDelete: SetNull)
   recoveryCaseId    String
-  recoveryCase      RecoveryCase    @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
-  recoveryAttemptId String          @unique
-  recoveryAttempt   RecoveryAttempt @relation(fields: [recoveryAttemptId], references: [id], onDelete: Cascade)
+  recoveryCase      RecoveryCase     @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  recoveryAttemptId String?
+  recoveryAttempt   RecoveryAttempt? @relation(fields: [recoveryAttemptId], references: [id], onDelete: Cascade)
+  messageType       MessageType      @default(PAYMENT_FAILED)
   provider          String
   templateName      String
   recipientPhone    String?
-  status            MessageStatus   @default(PENDING)
+  status            MessageStatus    @default(PENDING)
   providerMessageId String?
   errorMessage      String?
   payload           Json?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   @@index([recoveryCaseId])
   @@index([status])
+}
+
+model PaymentUpdateToken {
+  id             String       @id @default(cuid())
+  recoveryCaseId String
+  recoveryCase   RecoveryCase @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  merchantId     String?
+  merchant       Merchant?    @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  usedAt         DateTime?
+  supersededAt   DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([recoveryCaseId])
 }
 
 enum ProcessingStatus {

@@ -16,6 +16,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid connection URL'),
   NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL'),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1, 'RAZORPAY_WEBHOOK_SECRET is required'),
+  MESSAGING_PROVIDER: z.enum(['console']).default('console'),
 });
 
 export type Env = z.infer<typeof envSchema>;

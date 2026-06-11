@@ -50,6 +50,7 @@ export interface RecoveryStore {
   findCaseByPaymentEventId(paymentEventId: string): Promise<RecoveryCaseRecord | null>;
   createCase(input: NewCaseInput): Promise<RecoveryCaseRecord>;
   createAttempt(input: NewAttemptInput): Promise<RecoveryAttemptRecord>;
+  findAttempt(recoveryCaseId: string, attemptNumber: number): Promise<RecoveryAttemptRecord | null>;
   updateCaseStatus(caseId: string, status: RecoveryStatus): Promise<void>;
   listCases(limit?: number): Promise<RecoveryCaseRecord[]>;
 }

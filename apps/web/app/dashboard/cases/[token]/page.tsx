@@ -64,7 +64,7 @@ export default async function CaseDetailPage({ params }: { params: Params }) {
   const { summary, timeline } = detail;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-6 py-12">
+    <div className="flex flex-col gap-6">
       <div className="space-y-1">
         <Link href="/dashboard/cases" className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to cases
@@ -114,6 +114,6 @@ export default async function CaseDetailPage({ params }: { params: Params }) {
           ))}
         </ol>
       </section>
-    </main>
+    </div>
   );
 }

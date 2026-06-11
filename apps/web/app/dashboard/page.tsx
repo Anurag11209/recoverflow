@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/current';
 import { getDashboardStats } from '@/lib/dashboard/stats';
-import { LogoutButton } from './logout-button';
 
 // Reads the session cookie + live stats, so it must run per-request.
 export const dynamic = 'force-dynamic';
@@ -21,15 +20,7 @@ export default async function DashboardPage() {
   const stats = await getDashboardStats(user.merchant.id);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 px-6 py-12">
-      <header className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <p className="text-sm font-medium tracking-tight text-gray-500">{user.merchant.name}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        </div>
-        <LogoutButton />
-      </header>
-
+    <div className="flex flex-col gap-8">
       {/* Hero: the two numbers a merchant actually runs the business on. */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-gray-200 p-5">
@@ -69,6 +60,6 @@ export default async function DashboardPage() {
       <p className="text-sm text-gray-500">
         Case list and message history arrive in the next modules.
       </p>
-    </main>
+    </div>
   );
 }

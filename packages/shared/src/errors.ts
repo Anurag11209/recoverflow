@@ -87,6 +87,17 @@ export class ConflictError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(message = 'Too many requests', options: { code?: string; cause?: unknown } = {}) {
+    super(message, {
+      code: options.code ?? 'TOO_MANY_REQUESTS',
+      status: 429,
+      isOperational: true,
+      cause: options.cause,
+    });
+  }
+}
+
 // Pure mapping from any thrown value to an HTTP status + response envelope.
 // Lives here (not in the app) so it's testable without the framework, and so
 // every entrypoint maps errors identically.

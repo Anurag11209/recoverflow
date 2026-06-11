@@ -46,9 +46,11 @@ the adapters into the engine at startup. The engine therefore depends only on
 `shared`, stays unit-testable without a database, and could be extracted into
 a standalone process without touching its imports.
 
-Current code already complies: `shared` imports nothing internal, `db` imports
-`shared` (the Prisma client reads the validated `DATABASE_URL`),
-`recovery-engine` is a dependency-free stub, and `apps/web` composes the rest.
+Current code complies: `shared` imports nothing internal, `db` imports `shared`
+(the Prisma client reads the validated `DATABASE_URL`), `recovery-engine` is now
+fully implemented (recovery domain logic) yet still imports only `shared` —
+persistence reaches it as injected ports, never a direct Prisma import — and
+`apps/web` composes the rest.
 
 ## Consequences
 

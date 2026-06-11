@@ -60,6 +60,7 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
 
   const { case: recoveryCase } = await createRecoveryCase(recoveryStore, logger, {
     paymentEventId: event.id,
+    merchantId: event.merchantId,
     provider: event.provider,
     providerPaymentId: classified.providerPaymentId,
     customerEmail: classified.customerEmail,
@@ -79,16 +80,15 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
   if (attempt.attemptNumber === 1) {
     const { raw } = await createPaymentUpdateToken(
       { store: tokenStore, clock, logger },
-      // merchantId is not on RecoveryCaseRecord yet; the token FK is nullable by
-      // design (D2). The update page reads merchant via the case relation, not
-      // this field, so null here is intentional until a phase needs it non-null.
-      { recoveryCaseId: recoveryCase.id, merchantId: null },
+      // Phase 8: the case now carries merchantId, so the token is attributed too.
+      { recoveryCaseId: recoveryCase.id, merchantId: recoveryCase.merchantId },
     );
     updateUrl = buildPaymentUpdateUrl(raw);
   }
 
   await sendRecoveryMessage(messageStore, messagingProvider, logger, {
     recoveryCaseId: recoveryCase.id,
+    merchantId: event.merchantId,
     recoveryAttemptId: attempt.id,
     recipientPhone: classified.customerPhone,
     failureCategory: classified.category,

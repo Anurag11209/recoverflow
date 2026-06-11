@@ -27,6 +27,7 @@ export function createMessageStore(): MessageStore {
       return prisma.messageLog.create({
         data: {
           recoveryCaseId: input.recoveryCaseId,
+          merchantId: input.merchantId,
           recoveryAttemptId: input.recoveryAttemptId,
           messageType: input.messageType,
           provider: input.provider,

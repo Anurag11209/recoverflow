@@ -20,7 +20,6 @@ const envSchema = z.object({
   // which is the browser-facing origin. Defaults to localhost for dev/test so
   // it need not be set in every environment (avoids env blast radius).
   APP_BASE_URL: z.string().url('APP_BASE_URL must be a valid URL').default('http://localhost:3000'),
-  RAZORPAY_WEBHOOK_SECRET: z.string().min(1, 'RAZORPAY_WEBHOOK_SECRET is required'),
   MESSAGING_PROVIDER: z.enum(['console']).default('console'),
 });
 

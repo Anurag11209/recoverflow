@@ -19,12 +19,19 @@ enum UserRole {
 }
 
 model Merchant {
-  id        String    @id @default(cuid())
-  name      String
-  email     String    @unique
-  processor Processor @default(RAZORPAY)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  name                 String
+  email                String    @unique
+  processor            Processor @default(RAZORPAY)
+  // Per-merchant webhook attribution (Phase 8 Step 0). webhookToken routes the
+  // public webhook URL; razorpayWebhookSecret verifies that merchant's HMAC;
+  // razorpayAccountId is captured trust-on-first-use and cross-checked after.
+  // NOTE (Phase 9): encrypt razorpayWebhookSecret at rest.
+  webhookToken         String    @unique @default(cuid())
+  razorpayWebhookSecret String   @default("")
+  razorpayAccountId    String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   users               User[]
   customers           Customer[]
@@ -108,8 +115,8 @@ model PaymentEvent {
   provider          String
   providerEventId   String
   eventType         String
-  merchantId        String?
-  merchant          Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  merchantId        String
+  merchant          Merchant  @relation(fields: [merchantId], references: [id], onDelete: Restrict)
   payload           Json
   signatureVerified Boolean
   eventTime         DateTime?
@@ -233,6 +240,7 @@ model MessageLog {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
+  @@index([merchantId])
   @@index([recoveryCaseId])
   @@index([status])
 }

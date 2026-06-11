@@ -59,7 +59,13 @@ export async function submitPaymentUpdate(rawToken: string): Promise<SubmitResul
 
   const recoveryCase = await prisma.recoveryCase.findUnique({
     where: { id: claim.recoveryCaseId },
-    select: { amount: true, currency: true, customerPhone: true, providerPaymentId: true },
+    select: {
+      merchantId: true,
+      amount: true,
+      currency: true,
+      customerPhone: true,
+      providerPaymentId: true,
+    },
   });
   if (!recoveryCase) return { recovered: false };
 
@@ -75,6 +81,7 @@ export async function submitPaymentUpdate(rawToken: string): Promise<SubmitResul
     },
     {
       recoveryCaseId: claim.recoveryCaseId,
+      merchantId: recoveryCase.merchantId,
       providerPaymentId: recoveryCase.providerPaymentId,
       recipientPhone: recoveryCase.customerPhone,
       amount: recoveryCase.amount === null ? null : Number(recoveryCase.amount),

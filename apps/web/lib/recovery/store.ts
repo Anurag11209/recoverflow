@@ -18,7 +18,13 @@ export function createRecoveryStore(): RecoveryStore {
     async findCaseByPaymentEventId(paymentEventId: string): Promise<RecoveryCaseRecord | null> {
       const c = await prisma.recoveryCase.findUnique({
         where: { paymentEventId },
-        select: { id: true, paymentEventId: true, status: true, failureCategory: true },
+        select: {
+          id: true,
+          paymentEventId: true,
+          merchantId: true,
+          status: true,
+          failureCategory: true,
+        },
       });
       return c ?? null;
     },
@@ -27,6 +33,7 @@ export function createRecoveryStore(): RecoveryStore {
       const c = await prisma.recoveryCase.create({
         data: {
           paymentEventId: input.paymentEventId,
+          merchantId: input.merchantId,
           provider: input.provider,
           providerPaymentId: input.providerPaymentId,
           customerEmail: input.customerEmail,
@@ -37,7 +44,13 @@ export function createRecoveryStore(): RecoveryStore {
           failureCategory: input.failureCategory,
           status: 'OPEN',
         },
-        select: { id: true, paymentEventId: true, status: true, failureCategory: true },
+        select: {
+          id: true,
+          paymentEventId: true,
+          merchantId: true,
+          status: true,
+          failureCategory: true,
+        },
       });
       return c;
     },
@@ -92,7 +105,13 @@ export function createRecoveryStore(): RecoveryStore {
       return prisma.recoveryCase.findMany({
         take: limit,
         orderBy: { createdAt: 'desc' },
-        select: { id: true, paymentEventId: true, status: true, failureCategory: true },
+        select: {
+          id: true,
+          paymentEventId: true,
+          merchantId: true,
+          status: true,
+          failureCategory: true,
+        },
       });
     },
   };

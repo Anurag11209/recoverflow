@@ -21,6 +21,8 @@ export interface LoadedEvent {
   provider: string;
   providerEventId: string;
   eventType: string;
+  /** Owning merchant (Phase 8): every event is attributed at ingestion. */
+  merchantId: string;
   payload: unknown;
 }
 

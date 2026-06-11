@@ -17,15 +17,20 @@ export type ProcessResult =
   | { status: 'invalid_payload' }
   | { status: 'expired' }
   | { status: 'duplicate'; eventType: ClassifiedEventType }
+  | { status: 'account_mismatch' }
   | { status: 'processed'; eventType: ClassifiedEventType; paymentEventId: string };
 
 export interface ProcessWebhookArgs {
+  merchantId: string; // resolved from the per-merchant webhookToken (Phase 8)
   rawBody: string;
   signature: string | null | undefined;
-  secret: string;
+  secret: string; // the MERCHANT's razorpayWebhookSecret, not a global env secret
   eventId?: string | null; // x-razorpay-event-id; falls back to sha256(rawBody)
   now?: Date; // injectable clock for tests
   maxAgeSeconds?: number;
+  // account_id cross-check (Phase 8): the merchant's stored Razorpay account id,
+  // if known. null => trust-on-first-use (caller captures it after verification).
+  expectedAccountId?: string | null;
 }
 
 // The slice of PrismaClient the service needs. Declaring it as an interface
@@ -49,7 +54,7 @@ export async function processWebhook(
   store: WebhookStore,
   args: ProcessWebhookArgs,
 ): Promise<ProcessResult> {
-  const { rawBody, signature, secret } = args;
+  const { merchantId, rawBody, signature, secret } = args;
   const now = args.now ?? new Date();
   const maxAgeSeconds = args.maxAgeSeconds ?? DEFAULT_MAX_AGE_SECONDS;
 
@@ -59,11 +64,25 @@ export async function processWebhook(
   }
 
   // 2. Parse the (now trusted) envelope.
-  let envelope: { event?: string; created_at?: number };
+  let envelope: { event?: string; created_at?: number; account_id?: string };
   try {
     envelope = JSON.parse(rawBody);
   } catch {
     return { status: 'invalid_payload' };
+  }
+
+  // account_id cross-check (Phase 8). The signature already proved this body
+  // came from the holder of THIS merchant's secret; account_id is a secondary
+  // guard against a merchant pasting the wrong webhook URL into a different
+  // Razorpay account. Mismatch is rejected; TOFU capture (when none stored yet)
+  // is handled by the caller after a successful result.
+  const expectedAccountId = args.expectedAccountId ?? null;
+  if (
+    expectedAccountId !== null &&
+    typeof envelope.account_id === 'string' &&
+    envelope.account_id !== expectedAccountId
+  ) {
+    return { status: 'account_mismatch' };
   }
 
   // 3. Freshness. created_at is epoch SECONDS and HMAC-protected once the
@@ -97,6 +116,7 @@ export async function processWebhook(
           provider: RAZORPAY_PROVIDER,
           providerEventId: eventId,
           eventType,
+          merchantId,
           payload: JSON.parse(rawBody),
           signatureVerified: true,
           eventTime,

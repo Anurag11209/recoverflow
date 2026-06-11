@@ -27,6 +27,7 @@ export interface MessagingProvider {
 
 export interface NewMessageLogInput {
   recoveryCaseId: string;
+  merchantId: string | null;
   // Nullable: recovered/reminder messages are not tied to a specific attempt
   // (D6). The DB partial unique still enforces one message per attempt when set.
   recoveryAttemptId: string | null;

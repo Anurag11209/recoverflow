@@ -121,7 +121,8 @@ model PaymentEvent {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  recoveryCases RecoveryCase[]
+  recoveryCases   RecoveryCase[]
+  eventProcessing EventProcessing?
 
   @@index([provider, providerEventId])
   @@index([merchantId])
@@ -160,4 +161,37 @@ model RecoveryCase {
 
   @@index([merchantId, status])
   @@index([customerId])
+}
+
+enum ProcessingStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+model EventProcessing {
+  id             String           @id @default(cuid())
+  paymentEventId String           @unique
+  paymentEvent   PaymentEvent     @relation(fields: [paymentEventId], references: [id], onDelete: Cascade)
+  status         ProcessingStatus @default(PENDING)
+  attempts       Int              @default(0)
+  lastError      String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+}
+
+model IdempotencyRecord {
+  id            String   @id @default(cuid())
+  provider      String
+  eventId       String
+  eventType     String
+  processingKey String
+  createdAt     DateTime @default(now())
+
+  @@unique([provider, eventId])
 }

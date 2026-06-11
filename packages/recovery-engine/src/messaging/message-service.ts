@@ -11,6 +11,7 @@ import type {
 
 export interface SendRecoveryMessageInput {
   recoveryCaseId: string;
+  merchantId: string | null;
   recoveryAttemptId: string;
   recipientPhone: string | null;
   failureCategory: FailureCategory;
@@ -24,6 +25,7 @@ export interface SendRecoveryMessageInput {
 /** General message input: attempt-optional, template + type explicit. */
 export interface SendOneMessageInput {
   recoveryCaseId: string;
+  merchantId: string | null;
   recoveryAttemptId: string | null;
   messageType: MessageType;
   template: MessageTemplate;
@@ -68,6 +70,7 @@ export async function sendMessage(
   try {
     log = await store.createMessageLog({
       recoveryCaseId: input.recoveryCaseId,
+      merchantId: input.merchantId,
       recoveryAttemptId: input.recoveryAttemptId,
       messageType: input.messageType,
       provider: input.providerName,
@@ -186,6 +189,7 @@ export async function sendRecoveryMessage(
 
   return sendMessage(store, provider, logger, {
     recoveryCaseId: input.recoveryCaseId,
+    merchantId: input.merchantId,
     recoveryAttemptId: input.recoveryAttemptId,
     messageType: 'PAYMENT_FAILED',
     template,

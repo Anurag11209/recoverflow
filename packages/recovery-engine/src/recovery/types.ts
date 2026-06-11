@@ -10,6 +10,7 @@ export type AttemptStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 /** Fields needed to open a recovery case for a failed payment. */
 export interface NewCaseInput {
   paymentEventId: string;
+  merchantId: string;
   provider: string;
   providerPaymentId: string | null;
   customerEmail: string | null;
@@ -23,6 +24,7 @@ export interface NewCaseInput {
 export interface RecoveryCaseRecord {
   id: string;
   paymentEventId: string;
+  merchantId: string | null;
   status: RecoveryStatus;
   failureCategory: string | null;
 }

@@ -16,6 +16,7 @@ export interface CompleteRecoveryDeps {
 
 export interface CompleteRecoveryInput {
   recoveryCaseId: string;
+  merchantId: string | null;
   providerPaymentId: string | null;
   recipientPhone: string | null;
   amount: number | null;
@@ -90,6 +91,7 @@ export async function completeRecovery(
   if (input.currency !== null) variables.currency = input.currency;
   await sendMessage(deps.messageStore, deps.messagingProvider, deps.logger, {
     recoveryCaseId: input.recoveryCaseId,
+    merchantId: input.merchantId,
     recoveryAttemptId: null,
     messageType: 'PAYMENT_RECOVERED',
     template: 'PAYMENT_RECOVERED',

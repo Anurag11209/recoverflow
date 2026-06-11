@@ -5,7 +5,6 @@ const VALID = {
   NODE_ENV: 'test',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/recoverflow',
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
-  RAZORPAY_WEBHOOK_SECRET: 'whsec_test',
 } satisfies NodeJS.ProcessEnv;
 
 describe('loadEnv', () => {

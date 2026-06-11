@@ -19,6 +19,7 @@ async function clean() {
   await prisma.idempotencyRecord.deleteMany();
   await prisma.paymentEvent.deleteMany();
   await prisma.webhookReceipt.deleteMany();
+  await prisma.merchant.deleteMany();
 }
 
 beforeEach(clean);
@@ -28,11 +29,15 @@ afterAll(async () => {
 });
 
 async function seedFailedPayment(providerEventId: string) {
+  const merchant = await prisma.merchant.create({
+    data: { name: 'MF Test Co', email: `mf-${providerEventId}@test.local` },
+  });
   const pe = await prisma.paymentEvent.create({
     data: {
       provider: 'razorpay',
       providerEventId,
       eventType: 'payment.failed',
+      merchantId: merchant.id,
       payload: {
         event: 'payment.failed',
         payload: {

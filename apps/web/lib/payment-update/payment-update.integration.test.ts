@@ -14,6 +14,7 @@ async function clean() {
   await prisma.idempotencyRecord.deleteMany();
   await prisma.paymentEvent.deleteMany();
   await prisma.webhookReceipt.deleteMany();
+  await prisma.merchant.deleteMany();
 }
 
 beforeEach(clean);
@@ -30,11 +31,15 @@ const tokenDeps = () => ({
 
 /** Seed a PaymentEvent + RecoveryCase directly; returns the case id. */
 async function seedCase(providerEventId: string): Promise<string> {
+  const merchant = await prisma.merchant.create({
+    data: { name: 'PU Test Co', email: `pu-${providerEventId}@test.local` },
+  });
   const pe = await prisma.paymentEvent.create({
     data: {
       provider: 'razorpay',
       providerEventId,
       eventType: 'payment.failed',
+      merchantId: merchant.id,
       payload: {},
       signatureVerified: true,
     },
@@ -42,6 +47,7 @@ async function seedCase(providerEventId: string): Promise<string> {
   const rc = await prisma.recoveryCase.create({
     data: {
       paymentEventId: pe.id,
+      merchantId: merchant.id,
       provider: 'razorpay',
       providerPaymentId: 'pay_pu_int',
       customerEmail: 'pu@example.com',
@@ -71,7 +77,12 @@ describe('payment update flow (integration)', () => {
     const caseId = await seedCase('evt_pu_1');
     const raw = await mintToken(caseId);
     const meta = await validatePaymentToken(raw);
-    expect(meta).toEqual({ valid: true, merchantName: null, amount: '499', currency: 'INR' });
+    expect(meta).toEqual({
+      valid: true,
+      merchantName: 'PU Test Co',
+      amount: '499',
+      currency: 'INR',
+    });
   });
 
   it('rejects an unknown token with the generic response', async () => {

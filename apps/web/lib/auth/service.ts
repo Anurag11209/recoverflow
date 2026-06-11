@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { prisma } from '@recoverflow/db';
 import type { User } from '@recoverflow/db';
 import { ConflictError } from '@recoverflow/shared';
@@ -26,7 +27,13 @@ export async function registerMerchant(input: RegisterInput, meta: SessionMeta =
   try {
     user = await prisma.$transaction(async (tx) => {
       const merchant = await tx.merchant.create({
-        data: { name: input.organizationName, email: input.email },
+        data: {
+          name: input.organizationName,
+          email: input.email,
+          // Per-merchant Razorpay webhook secret (Phase 8). webhookToken rides its
+          // schema cuid default (a routing key, not a secret).
+          razorpayWebhookSecret: `whsec_${randomBytes(24).toString('hex')}`,
+        },
       });
       return tx.user.create({
         data: {

@@ -24,7 +24,15 @@ export const POST = withErrorHandling(async (request: Request) => {
   });
 
   switch (result.status) {
-    case 'processed':
+    case 'processed': {
+      // Seed the processing record (PENDING) so the event can be claimed and
+      // processed exactly once. Ingestion and processing are deliberately
+      // separated (Phase 4); the processor runs this later.
+      await prisma.eventProcessing.create({
+        data: { paymentEventId: result.paymentEventId, status: 'PENDING' },
+      });
+      return NextResponse.json({ success: true });
+    }
     case 'duplicate':
       // A replay is answered 200 (idempotently, no second row) so Razorpay
       // stops retrying.

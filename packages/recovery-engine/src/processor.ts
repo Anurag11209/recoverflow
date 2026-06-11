@@ -2,6 +2,7 @@ import type { Logger } from './logger';
 import { processingKey, recordIdempotency } from './idempotency';
 import { routeEvent } from './router';
 import type { ProcessOutcome, ProcessingStore } from './types';
+import type { RecoveryStore } from './recovery/types';
 
 /**
  * Process a single PaymentEvent exactly once.
@@ -11,12 +12,14 @@ import type { ProcessOutcome, ProcessingStore } from './types';
  * changes a row proceeds; others get { claimed: false } and SKIP. No in-memory
  * locks — safe across processes/servers.
  *
- * On success the permanent idempotency ledger entry is written, then status is
- * marked SUCCESS. On handler error the status is marked FAILED (retryable) and
- * the error is captured as state rather than thrown.
+ * The handler runs inside the claim with an injected context (logger +
+ * recoveryStore). On success the permanent idempotency ledger entry is written,
+ * then status is marked SUCCESS. On handler error the status is marked FAILED
+ * (retryable) and the error is captured as state rather than thrown.
  */
 export async function processPaymentEvent(
   store: ProcessingStore,
+  recoveryStore: RecoveryStore,
   logger: Logger,
   paymentEventId: string,
 ): Promise<ProcessOutcome> {
@@ -39,7 +42,7 @@ export async function processPaymentEvent(
 
   const handler = routeEvent(event.eventType);
   try {
-    await handler(event, logger);
+    await handler(event, { logger, recoveryStore });
     await recordIdempotency(store, {
       provider: event.provider,
       eventId: event.providerEventId,

@@ -4,6 +4,7 @@ import { logger } from '@recoverflow/shared';
 import { ValidationError } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
 import { createProcessingStore } from '@/lib/processing/store';
+import { createRecoveryStore } from '@/lib/recovery/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,11 @@ export const POST = withErrorHandling(async (request: Request) => {
     throw new ValidationError('paymentEventId is required');
   }
 
-  const outcome = await processPaymentEvent(createProcessingStore(), logger, paymentEventId);
+  const outcome = await processPaymentEvent(
+    createProcessingStore(),
+    createRecoveryStore(),
+    logger,
+    paymentEventId,
+  );
   return NextResponse.json(outcome);
 });

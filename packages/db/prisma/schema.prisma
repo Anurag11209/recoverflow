@@ -13,12 +13,6 @@ enum Processor {
   STRIPE
 }
 
-enum RecoveryCaseStatus {
-  OPEN
-  RECOVERED
-  GIVEN_UP
-}
-
 enum UserRole {
   OWNER
   MEMBER
@@ -121,7 +115,7 @@ model PaymentEvent {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  recoveryCases   RecoveryCase[]
+  recoveryCase    RecoveryCase?
   eventProcessing EventProcessing?
 
   @@index([provider, providerEventId])
@@ -141,26 +135,63 @@ model WebhookReceipt {
   @@unique([provider, eventId])
 }
 
+enum RecoveryStatus {
+  OPEN
+  RECOVERED
+  FAILED
+  CLOSED
+}
+
+enum AttemptStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
 model RecoveryCase {
-  id             String             @id @default(cuid())
-  merchantId     String
-  merchant       Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  customerId     String
-  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  subscriptionId String?
-  subscription   Subscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  paymentEventId String?
-  paymentEvent   PaymentEvent?      @relation(fields: [paymentEventId], references: [id], onDelete: SetNull)
-  amount         Int?
-  currency       String             @default("INR")
-  status         RecoveryCaseStatus @default(OPEN)
-  token          String             @unique @default(cuid())
-  createdAt      DateTime           @default(now())
-  recoveredAt    DateTime?
-  updatedAt      DateTime           @updatedAt
+  id                String         @id @default(cuid())
+  merchantId        String?
+  merchant          Merchant?      @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  customerId        String?
+  customer          Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  subscriptionId    String?
+  subscription      Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  paymentEventId    String         @unique
+  paymentEvent      PaymentEvent   @relation(fields: [paymentEventId], references: [id], onDelete: Restrict)
+  provider          String
+  providerPaymentId String?
+  customerEmail     String?
+  customerPhone     String?
+  amount            Decimal?
+  currency          String?
+  failureReason     String?
+  failureCategory   String?
+  status            RecoveryStatus @default(OPEN)
+  token             String         @unique @default(cuid())
+  createdAt         DateTime       @default(now())
+  recoveredAt       DateTime?
+  updatedAt         DateTime       @updatedAt
+
+  attempts RecoveryAttempt[]
 
   @@index([merchantId, status])
   @@index([customerId])
+  @@index([status])
+}
+
+model RecoveryAttempt {
+  id             String        @id @default(cuid())
+  recoveryCaseId String
+  recoveryCase   RecoveryCase  @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  attemptNumber  Int
+  status         AttemptStatus @default(PENDING)
+  scheduledAt    DateTime
+  executedAt     DateTime?
+  failureReason  String?
+  createdAt      DateTime      @default(now())
+
+  @@unique([recoveryCaseId, attemptNumber])
+  @@index([status, scheduledAt])
 }
 
 enum ProcessingStatus {

@@ -31,6 +31,7 @@ model Merchant {
   subscriptions Subscription[]
   paymentEvents PaymentEvent[]
   recoveryCases RecoveryCase[]
+  messageLogs   MessageLog[]
 }
 
 model User {
@@ -172,7 +173,8 @@ model RecoveryCase {
   recoveredAt       DateTime?
   updatedAt         DateTime       @updatedAt
 
-  attempts RecoveryAttempt[]
+  attempts    RecoveryAttempt[]
+  messageLogs MessageLog[]
 
   @@index([merchantId, status])
   @@index([customerId])
@@ -190,8 +192,39 @@ model RecoveryAttempt {
   failureReason  String?
   createdAt      DateTime      @default(now())
 
+  messageLog MessageLog?
+
   @@unique([recoveryCaseId, attemptNumber])
   @@index([status, scheduledAt])
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+model MessageLog {
+  id                String          @id @default(cuid())
+  merchantId        String?
+  merchant          Merchant?       @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  recoveryCaseId    String
+  recoveryCase      RecoveryCase    @relation(fields: [recoveryCaseId], references: [id], onDelete: Cascade)
+  recoveryAttemptId String          @unique
+  recoveryAttempt   RecoveryAttempt @relation(fields: [recoveryAttemptId], references: [id], onDelete: Cascade)
+  provider          String
+  templateName      String
+  recipientPhone    String?
+  status            MessageStatus   @default(PENDING)
+  providerMessageId String?
+  errorMessage      String?
+  payload           Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([recoveryCaseId])
+  @@index([status])
 }
 
 enum ProcessingStatus {

@@ -5,11 +5,13 @@ import { logger } from '@recoverflow/shared';
 import { createProcessingStore } from '../processing/store';
 import { createRecoveryStore } from '../recovery/store';
 import { createMessageStore } from './store';
+import { createTokenStore } from '../payment-update/store';
 import { createConsoleMessagingProvider } from './console-provider';
 
 // FK-safe order: MessageLog -> RecoveryAttempt -> RecoveryCase (Restrict on
 // paymentEventId) -> EventProcessing/Idempotency -> PaymentEvent.
 async function clean() {
+  await prisma.paymentUpdateToken.deleteMany();
   await prisma.messageLog.deleteMany();
   await prisma.recoveryAttempt.deleteMany();
   await prisma.recoveryCase.deleteMany();
@@ -67,6 +69,9 @@ function deps(provider: MessagingProvider) {
     messageStore: createMessageStore(),
     messagingProvider: provider,
     messagingProviderName: 'console',
+    tokenStore: createTokenStore(),
+    clock: { now: () => new Date() },
+    buildPaymentUpdateUrl: (token: string) => `https://app.test/update-payment/${token}`,
     logger,
   };
 }

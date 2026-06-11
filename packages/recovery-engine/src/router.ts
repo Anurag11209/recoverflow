@@ -6,6 +6,8 @@ import { classifyFailure } from './recovery/classifier';
 import { createRecoveryCase } from './recovery/case-service';
 import { scheduleFirstAttempt } from './recovery/attempt-service';
 import { sendRecoveryMessage } from './messaging/message-service';
+import { createPaymentUpdateToken } from './payment-update/token-service';
+import type { Clock, TokenStore } from './payment-update/token-types';
 
 export const HANDLED_EVENT_TYPES = [
   'payment.failed',
@@ -23,6 +25,10 @@ export interface HandlerContext {
   messageStore: MessageStore;
   messagingProvider: MessagingProvider;
   messagingProviderName: string;
+  tokenStore: TokenStore;
+  clock: Clock;
+  /** apps/web supplies APP_BASE_URL-based builder; engine never reads env. */
+  buildPaymentUpdateUrl: (rawToken: string) => string;
 }
 
 export type EventHandler = (event: LoadedEvent, ctx: HandlerContext) => Promise<void>;
@@ -36,7 +42,16 @@ export type EventHandler = (event: LoadedEvent, ctx: HandlerContext) => Promise<
  * breaks event processing.
  */
 async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Promise<void> {
-  const { logger, recoveryStore, messageStore, messagingProvider, messagingProviderName } = ctx;
+  const {
+    logger,
+    recoveryStore,
+    messageStore,
+    messagingProvider,
+    messagingProviderName,
+    tokenStore,
+    clock,
+    buildPaymentUpdateUrl,
+  } = ctx;
   const classified = classifyFailure(event.payload);
   logger.info(
     { event: 'failure_classified', paymentEventId: event.id, failureCategory: classified.category },
@@ -57,6 +72,21 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
 
   const { attempt } = await scheduleFirstAttempt(recoveryStore, logger, recoveryCase.id);
 
+  // Generate the secure payment-update token ONLY for attempt #1 and build the
+  // link. Later attempts (Phase 8 reminders) reuse the active token rather than
+  // minting a new one, so a customer's first-message link never goes dead.
+  let updateUrl: string | undefined;
+  if (attempt.attemptNumber === 1) {
+    const { raw } = await createPaymentUpdateToken(
+      { store: tokenStore, clock, logger },
+      // merchantId is not on RecoveryCaseRecord yet; the token FK is nullable by
+      // design (D2). The update page reads merchant via the case relation, not
+      // this field, so null here is intentional until a phase needs it non-null.
+      { recoveryCaseId: recoveryCase.id, merchantId: null },
+    );
+    updateUrl = buildPaymentUpdateUrl(raw);
+  }
+
   await sendRecoveryMessage(messageStore, messagingProvider, logger, {
     recoveryCaseId: recoveryCase.id,
     recoveryAttemptId: attempt.id,
@@ -65,6 +95,7 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
     amount: classified.amount,
     currency: classified.currency,
     providerName: messagingProviderName,
+    updateUrl,
   });
 }
 

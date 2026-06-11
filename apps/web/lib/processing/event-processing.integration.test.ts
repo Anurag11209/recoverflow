@@ -5,11 +5,13 @@ import { logger } from '@recoverflow/shared';
 import { createProcessingStore } from './store';
 import { createRecoveryStore } from '../recovery/store';
 import { createMessageStore } from '../messaging/store';
+import { createTokenStore } from '../payment-update/store';
 import { createConsoleMessagingProvider } from '../messaging/console-provider';
 
 // FK-safe order. EventProcessing/IdempotencyRecord first, then PaymentEvent
 // (EventProcessing references PaymentEvent; IdempotencyRecord is standalone).
 async function clean() {
+  await prisma.paymentUpdateToken.deleteMany();
   await prisma.messageLog.deleteMany();
   await prisma.recoveryAttempt.deleteMany();
   await prisma.recoveryCase.deleteMany();
@@ -32,6 +34,9 @@ const deps = () => ({
   messageStore: createMessageStore(),
   messagingProvider: createConsoleMessagingProvider(),
   messagingProviderName: 'console',
+  tokenStore: createTokenStore(),
+  clock: { now: () => new Date() },
+  buildPaymentUpdateUrl: (token: string) => `https://app.test/update-payment/${token}`,
   logger,
 });
 

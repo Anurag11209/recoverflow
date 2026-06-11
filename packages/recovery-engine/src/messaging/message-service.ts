@@ -12,6 +12,8 @@ export interface SendRecoveryMessageInput {
   amount: number | null;
   currency: string | null;
   providerName: string;
+  /** Secure payment-update link (present for attempt #1). Goes into vars + payload. */
+  updateUrl?: string;
 }
 
 export type MessageOutcome =
@@ -24,6 +26,7 @@ function buildVariables(input: SendRecoveryMessageInput): Record<string, string>
   const v: Record<string, string> = { category: input.failureCategory };
   if (input.amount !== null) v.amount = String(input.amount);
   if (input.currency !== null) v.currency = input.currency;
+  if (input.updateUrl) v.updateUrl = input.updateUrl;
   return v;
 }
 

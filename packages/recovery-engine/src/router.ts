@@ -1,9 +1,11 @@
 import type { Logger } from './logger';
 import type { LoadedEvent } from './types';
 import type { RecoveryStore } from './recovery/types';
+import type { MessageStore, MessagingProvider } from './messaging/message-types';
 import { classifyFailure } from './recovery/classifier';
 import { createRecoveryCase } from './recovery/case-service';
 import { scheduleFirstAttempt } from './recovery/attempt-service';
+import { sendRecoveryMessage } from './messaging/message-service';
 
 export const HANDLED_EVENT_TYPES = [
   'payment.failed',
@@ -18,19 +20,23 @@ export type HandledEventType = (typeof HANDLED_EVENT_TYPES)[number];
 export interface HandlerContext {
   logger: Logger;
   recoveryStore: RecoveryStore;
+  messageStore: MessageStore;
+  messagingProvider: MessagingProvider;
+  messagingProviderName: string;
 }
 
 export type EventHandler = (event: LoadedEvent, ctx: HandlerContext) => Promise<void>;
 
 /**
- * payment.failed (Phase 5): classify the failure, open a RecoveryCase, and
- * schedule the first RecoveryAttempt. Both service calls are idempotent (return
- * existing on a reprocessed event), and the whole handler runs inside the
- * processor's exactly-once claim, so duplicate deliveries never double-create.
- * No WhatsApp, no retry execution — that is Phase 6+.
+ * payment.failed (Phase 6): classify the failure, open a RecoveryCase, schedule
+ * the first RecoveryAttempt, then send the recovery message for that attempt.
+ * All steps are idempotent and run inside the processor's exactly-once claim,
+ * so duplicate deliveries never double-create or double-send. A message failure
+ * is contained inside sendRecoveryMessage (logged + stored FAILED) and never
+ * breaks event processing.
  */
 async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Promise<void> {
-  const { logger, recoveryStore } = ctx;
+  const { logger, recoveryStore, messageStore, messagingProvider, messagingProviderName } = ctx;
   const classified = classifyFailure(event.payload);
   logger.info(
     { event: 'failure_classified', paymentEventId: event.id, failureCategory: classified.category },
@@ -49,10 +55,20 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
     failureCategory: classified.category,
   });
 
-  await scheduleFirstAttempt(recoveryStore, logger, recoveryCase.id);
+  const { attempt } = await scheduleFirstAttempt(recoveryStore, logger, recoveryCase.id);
+
+  await sendRecoveryMessage(messageStore, messagingProvider, logger, {
+    recoveryCaseId: recoveryCase.id,
+    recoveryAttemptId: attempt.id,
+    recipientPhone: classified.customerPhone,
+    failureCategory: classified.category,
+    amount: classified.amount,
+    currency: classified.currency,
+    providerName: messagingProviderName,
+  });
 }
 
-// Other handlers remain log-only in Phase 5.
+// Other handlers remain log-only.
 async function handlePaymentCaptured(event: LoadedEvent, ctx: HandlerContext): Promise<void> {
   ctx.logger.info(
     { paymentEventId: event.id, eventType: event.eventType },

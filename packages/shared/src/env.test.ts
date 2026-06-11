@@ -21,6 +21,16 @@ describe('loadEnv', () => {
     expect(loadEnv(rest).NODE_ENV).toBe('development');
   });
 
+  it('defaults MESSAGING_PROVIDER to console', () => {
+    expect(loadEnv(VALID).MESSAGING_PROVIDER).toBe('console');
+  });
+
+  it('rejects an unsupported MESSAGING_PROVIDER', () => {
+    expect(() => loadEnv({ ...VALID, MESSAGING_PROVIDER: 'carrier-pigeon' })).toThrow(
+      /MESSAGING_PROVIDER/i,
+    );
+  });
+
   it('throws when DATABASE_URL is missing', () => {
     const rest = Object.fromEntries(
       Object.entries(VALID).filter(([key]) => key !== 'DATABASE_URL'),

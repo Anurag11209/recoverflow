@@ -4,8 +4,11 @@ import { processPaymentEvent } from '@recoverflow/recovery-engine';
 import { logger } from '@recoverflow/shared';
 import { createProcessingStore } from '../processing/store';
 import { createRecoveryStore } from './store';
+import { createMessageStore } from '../messaging/store';
+import { createConsoleMessagingProvider } from '../messaging/console-provider';
 
 async function clean() {
+  await prisma.messageLog.deleteMany();
   await prisma.recoveryAttempt.deleteMany();
   await prisma.recoveryCase.deleteMany();
   await prisma.eventProcessing.deleteMany();
@@ -22,6 +25,15 @@ afterAll(async () => {
 
 const processingStore = createProcessingStore();
 const recoveryStore = createRecoveryStore();
+const messageStore = createMessageStore();
+const deps = () => ({
+  processingStore,
+  recoveryStore,
+  messageStore,
+  messagingProvider: createConsoleMessagingProvider(),
+  messagingProviderName: 'console',
+  logger,
+});
 
 async function seedFailedPayment(providerEventId: string) {
   const pe = await prisma.paymentEvent.create({
@@ -61,7 +73,7 @@ async function forceReprocess(paymentEventId: string) {
 describe('recovery engine (integration)', () => {
   it('payment.failed creates a RecoveryCase (OPEN, classified)', async () => {
     const peId = await seedFailedPayment('evt_r1');
-    const outcome = await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    const outcome = await processPaymentEvent(deps(), peId);
     expect(outcome.status).toBe('SUCCESS');
 
     const rc = await prisma.recoveryCase.findUniqueOrThrow({ where: { paymentEventId: peId } });
@@ -72,7 +84,7 @@ describe('recovery engine (integration)', () => {
 
   it('payment.failed creates RecoveryAttempt #1 (PENDING)', async () => {
     const peId = await seedFailedPayment('evt_r2');
-    await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    await processPaymentEvent(deps(), peId);
 
     const rc = await prisma.recoveryCase.findUniqueOrThrow({ where: { paymentEventId: peId } });
     const attempts = await prisma.recoveryAttempt.findMany({ where: { recoveryCaseId: rc.id } });
@@ -83,29 +95,29 @@ describe('recovery engine (integration)', () => {
 
   it('duplicate delivery creates only one RecoveryCase', async () => {
     const peId = await seedFailedPayment('evt_r3');
-    await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    await processPaymentEvent(deps(), peId);
     await forceReprocess(peId);
-    await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    await processPaymentEvent(deps(), peId);
 
     expect(await prisma.recoveryCase.count()).toBe(1);
   });
 
   it('duplicate delivery creates only one RecoveryAttempt', async () => {
     const peId = await seedFailedPayment('evt_r4');
-    await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    await processPaymentEvent(deps(), peId);
     await forceReprocess(peId);
-    await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    await processPaymentEvent(deps(), peId);
 
     expect(await prisma.recoveryAttempt.count()).toBe(1);
   });
 
   it('processing remains idempotent: reprocess still SUCCESS, no extra rows', async () => {
     const peId = await seedFailedPayment('evt_r5');
-    const first = await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    const first = await processPaymentEvent(deps(), peId);
     expect(first.status).toBe('SUCCESS');
 
     await forceReprocess(peId);
-    const second = await processPaymentEvent(processingStore, recoveryStore, logger, peId);
+    const second = await processPaymentEvent(deps(), peId);
     expect(second.status).toBe('SUCCESS');
 
     expect(await prisma.recoveryCase.count()).toBe(1);

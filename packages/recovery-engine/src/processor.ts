@@ -3,26 +3,44 @@ import { processingKey, recordIdempotency } from './idempotency';
 import { routeEvent } from './router';
 import type { ProcessOutcome, ProcessingStore } from './types';
 import type { RecoveryStore } from './recovery/types';
+import type { MessageStore, MessagingProvider } from './messaging/message-types';
+
+/**
+ * Injected dependencies for processing one event (ADR 0001). Bundled into one
+ * object so new capabilities (Phase 7+) extend this type rather than shifting
+ * positional arguments at every call site.
+ */
+export interface ProcessDeps {
+  processingStore: ProcessingStore;
+  recoveryStore: RecoveryStore;
+  messageStore: MessageStore;
+  messagingProvider: MessagingProvider;
+  messagingProviderName: string;
+  logger: Logger;
+}
 
 /**
  * Process a single PaymentEvent exactly once.
  *
  * Concurrency: the claim (store.claimEvent) is an atomic conditional update
  * (PENDING|FAILED -> PROCESSING for this id). Only the worker whose update
- * changes a row proceeds; others get { claimed: false } and SKIP. No in-memory
- * locks — safe across processes/servers.
- *
- * The handler runs inside the claim with an injected context (logger +
- * recoveryStore). On success the permanent idempotency ledger entry is written,
- * then status is marked SUCCESS. On handler error the status is marked FAILED
- * (retryable) and the error is captured as state rather than thrown.
+ * changes a row proceeds; others SKIP. The handler runs inside the claim with
+ * an injected context. On success the permanent idempotency ledger entry is
+ * written, then status is marked SUCCESS. On handler error the status is marked
+ * FAILED (retryable) and the error is captured as state rather than thrown.
  */
 export async function processPaymentEvent(
-  store: ProcessingStore,
-  recoveryStore: RecoveryStore,
-  logger: Logger,
+  deps: ProcessDeps,
   paymentEventId: string,
 ): Promise<ProcessOutcome> {
+  const {
+    processingStore: store,
+    recoveryStore,
+    messageStore,
+    messagingProvider,
+    messagingProviderName,
+    logger,
+  } = deps;
   const startedAt = Date.now();
 
   const event = await store.loadEvent(paymentEventId);
@@ -42,7 +60,13 @@ export async function processPaymentEvent(
 
   const handler = routeEvent(event.eventType);
   try {
-    await handler(event, { logger, recoveryStore });
+    await handler(event, {
+      logger,
+      recoveryStore,
+      messageStore,
+      messagingProvider,
+      messagingProviderName,
+    });
     await recordIdempotency(store, {
       provider: event.provider,
       eventId: event.providerEventId,

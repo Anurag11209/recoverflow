@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { env } from '@recoverflow/shared';
 import { SESSION_COOKIE_NAME } from './session-core';
 
-const BASE_ATTRIBUTES = {
+export const BASE_ATTRIBUTES = {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',

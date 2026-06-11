@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { processPaymentEvent } from './processor';
 import type { RecoveryStore } from './recovery/types';
 import type { ClaimResult, LoadedEvent, ProcessingStore } from './types';
-import { msgCtx } from './_msgfakes';
+import { msgCtx, tokenCtx } from './_msgfakes';
 
 interface Row {
   event: LoadedEvent;
@@ -82,6 +82,7 @@ const deps = (store: ProcessingStore) => ({
   recoveryStore: recoveryStoreStub,
   logger: nullLogger(),
   ...msgCtx(),
+  ...tokenCtx(),
 });
 
 const EV: LoadedEvent = {

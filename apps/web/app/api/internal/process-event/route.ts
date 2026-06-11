@@ -7,6 +7,7 @@ import { createProcessingStore } from '@/lib/processing/store';
 import { createRecoveryStore } from '@/lib/recovery/store';
 import { createMessageStore } from '@/lib/messaging/store';
 import { createConsoleMessagingProvider } from '@/lib/messaging/console-provider';
+import { createTokenStore } from '@/lib/payment-update/store';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,9 @@ export const POST = withErrorHandling(async (request: Request) => {
       messageStore: createMessageStore(),
       messagingProvider: createConsoleMessagingProvider(),
       messagingProviderName: env.MESSAGING_PROVIDER,
+      tokenStore: createTokenStore(),
+      clock: { now: () => new Date() },
+      buildPaymentUpdateUrl: (token: string) => `${env.APP_BASE_URL}/update-payment/${token}`,
       logger,
     },
     paymentEventId,

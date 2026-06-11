@@ -2,7 +2,12 @@ import { isUniqueViolation } from '../idempotency';
 import type { Logger } from '../logger';
 import type { FailureCategory } from '../recovery/classifier';
 import { selectTemplate } from './template-selector';
-import type { MessageStore, MessagingProvider } from './message-types';
+import type {
+  MessageStore,
+  MessageTemplate,
+  MessageType,
+  MessagingProvider,
+} from './message-types';
 
 export interface SendRecoveryMessageInput {
   recoveryCaseId: string;
@@ -12,6 +17,19 @@ export interface SendRecoveryMessageInput {
   amount: number | null;
   currency: string | null;
   providerName: string;
+  /** Secure payment-update link (present for attempt #1). Goes into vars + payload. */
+  updateUrl?: string;
+}
+
+/** General message input: attempt-optional, template + type explicit. */
+export interface SendOneMessageInput {
+  recoveryCaseId: string;
+  recoveryAttemptId: string | null;
+  messageType: MessageType;
+  template: MessageTemplate;
+  recipientPhone: string | null;
+  variables: Record<string, string>;
+  providerName: string;
 }
 
 export type MessageOutcome =
@@ -19,58 +37,46 @@ export type MessageOutcome =
   | { status: 'failed'; messageLogId: string; error: string }
   | { status: 'skipped_duplicate'; messageLogId: string };
 
-/** Build the template variables from what the failed payment gave us. */
+/** Build the failure-message template variables from the failed payment. */
 function buildVariables(input: SendRecoveryMessageInput): Record<string, string> {
   const v: Record<string, string> = { category: input.failureCategory };
   if (input.amount !== null) v.amount = String(input.amount);
   if (input.currency !== null) v.currency = input.currency;
+  if (input.updateUrl) v.updateUrl = input.updateUrl;
   return v;
 }
 
 /**
- * Send the recovery message for an attempt, at most once.
+ * General send primitive: create a MessageLog, send via the provider, mark the
+ * outcome. At-most-once delivery for ATTEMPT-LINKED messages comes from the
+ * partial unique on recoveryAttemptId (P2002 -> skipped_duplicate). For
+ * null-attempt messages (recovered/reminder) there is no such constraint; their
+ * idempotency comes from the caller (e.g. the single-use token claim, D5), so
+ * we do not attempt the duplicate lookup when attemptId is null.
  *
- * Error containment: PROVIDER failures are caught -> MessageLog FAILED ->
- * normal return (message failures must never break event processing). STORE
- * failures (other than the P2002 duplicate) propagate, so a broken DB marks
- * the event FAILED-retryable, which is the correct unit-of-work behavior.
- *
- * Idempotency: the unique recoveryAttemptId means a reprocessed event's
- * createMessageLog throws P2002; we return the existing log WITHOUT calling
- * the provider (at-most-once delivery, never a duplicate send).
+ * Error containment: provider failures are caught -> MessageLog FAILED ->
+ * normal return (a message failure must never break the caller's workflow).
+ * Store failures other than the P2002 duplicate propagate.
  */
-export async function sendRecoveryMessage(
+export async function sendMessage(
   store: MessageStore,
   provider: MessagingProvider,
   logger: Logger,
-  input: SendRecoveryMessageInput,
+  input: SendOneMessageInput,
 ): Promise<MessageOutcome> {
-  const template = selectTemplate(input.failureCategory);
-  logger.info(
-    {
-      event: 'message_template_selected',
-      recoveryCaseId: input.recoveryCaseId,
-      recoveryAttemptId: input.recoveryAttemptId,
-      phone: input.recipientPhone,
-      template,
-    },
-    'message template selected',
-  );
-
-  const variables = buildVariables(input);
-
   let log;
   try {
     log = await store.createMessageLog({
       recoveryCaseId: input.recoveryCaseId,
       recoveryAttemptId: input.recoveryAttemptId,
+      messageType: input.messageType,
       provider: input.providerName,
-      templateName: template,
+      templateName: input.template,
       recipientPhone: input.recipientPhone,
-      payload: variables,
+      payload: input.variables,
     });
   } catch (e) {
-    if (isUniqueViolation(e)) {
+    if (input.recoveryAttemptId !== null && isUniqueViolation(e)) {
       const existing = await store.findMessageByAttemptId(input.recoveryAttemptId);
       if (existing) {
         logger.info(
@@ -95,7 +101,8 @@ export async function sendRecoveryMessage(
       recoveryAttemptId: input.recoveryAttemptId,
       messageLogId: log.id,
       phone: input.recipientPhone,
-      template,
+      template: input.template,
+      messageType: input.messageType,
     },
     'message log created',
   );
@@ -107,10 +114,8 @@ export async function sendRecoveryMessage(
       {
         event: 'message_failed',
         recoveryCaseId: input.recoveryCaseId,
-        recoveryAttemptId: input.recoveryAttemptId,
         messageLogId: log.id,
-        phone: null,
-        template,
+        template: input.template,
         err: error,
       },
       'message failed: no recipient phone',
@@ -121,8 +126,8 @@ export async function sendRecoveryMessage(
   try {
     const { providerMessageId } = await provider.sendMessage({
       phone: input.recipientPhone,
-      template,
-      variables,
+      template: input.template,
+      variables: input.variables,
     });
     await store.markSent(log.id, providerMessageId);
     logger.info(
@@ -132,7 +137,8 @@ export async function sendRecoveryMessage(
         recoveryAttemptId: input.recoveryAttemptId,
         messageLogId: log.id,
         phone: input.recipientPhone,
-        template,
+        template: input.template,
+        messageType: input.messageType,
         providerMessageId,
       },
       'message sent',
@@ -145,14 +151,46 @@ export async function sendRecoveryMessage(
       {
         event: 'message_failed',
         recoveryCaseId: input.recoveryCaseId,
-        recoveryAttemptId: input.recoveryAttemptId,
         messageLogId: log.id,
-        phone: input.recipientPhone,
-        template,
+        template: input.template,
         err: message,
       },
       'message failed: provider error',
     );
     return { status: 'failed', messageLogId: log.id, error: message };
   }
+}
+
+/**
+ * Phase-6 wrapper: send the recovery (failure) message for an attempt. Selects
+ * the template from the failure category, builds the variables, and delegates
+ * to the general sendMessage primitive with messageType PAYMENT_FAILED.
+ */
+export async function sendRecoveryMessage(
+  store: MessageStore,
+  provider: MessagingProvider,
+  logger: Logger,
+  input: SendRecoveryMessageInput,
+): Promise<MessageOutcome> {
+  const template = selectTemplate(input.failureCategory);
+  logger.info(
+    {
+      event: 'message_template_selected',
+      recoveryCaseId: input.recoveryCaseId,
+      recoveryAttemptId: input.recoveryAttemptId,
+      phone: input.recipientPhone,
+      template,
+    },
+    'message template selected',
+  );
+
+  return sendMessage(store, provider, logger, {
+    recoveryCaseId: input.recoveryCaseId,
+    recoveryAttemptId: input.recoveryAttemptId,
+    messageType: 'PAYMENT_FAILED',
+    template,
+    recipientPhone: input.recipientPhone,
+    variables: buildVariables(input),
+    providerName: input.providerName,
+  });
 }

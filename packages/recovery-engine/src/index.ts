@@ -43,8 +43,12 @@ export type {
 } from './recovery/types';
 
 // Messaging (Phase 6)
-export { sendRecoveryMessage } from './messaging/message-service';
-export type { SendRecoveryMessageInput, MessageOutcome } from './messaging/message-service';
+export { sendRecoveryMessage, sendMessage } from './messaging/message-service';
+export type {
+  SendRecoveryMessageInput,
+  SendOneMessageInput,
+  MessageOutcome,
+} from './messaging/message-service';
 export { selectTemplate } from './messaging/template-selector';
 export { MESSAGE_TEMPLATES } from './messaging/message-types';
 export type {
@@ -55,4 +59,37 @@ export type {
   MessageStore,
   NewMessageLogInput,
   MessageLogRecord,
+  MessageType,
 } from './messaging/message-types';
+
+// Payment update tokens (Phase 7)
+export {
+  generateToken,
+  hashToken,
+  expiresAtFrom,
+  createPaymentUpdateToken,
+  validateRawToken,
+  consumeToken,
+} from './payment-update/token-service';
+export type { TokenDeps } from './payment-update/token-service';
+export type {
+  RawToken,
+  TokenHash,
+  TokenRecord,
+  Clock,
+  CreateTokenInput,
+  TokenStore,
+  ConsumeResult,
+  ValidateResult,
+} from './payment-update/token-types';
+export { completeRecovery } from './payment-update/recovery-completion';
+export type {
+  CompleteRecoveryDeps,
+  CompleteRecoveryInput,
+  CompleteRecoveryResult,
+} from './payment-update/recovery-completion';
+export type {
+  PaymentMethodUpdater,
+  UpdatePaymentMethodInput,
+  UpdatePaymentMethodResult,
+} from './payment-update/payment-method-updater';

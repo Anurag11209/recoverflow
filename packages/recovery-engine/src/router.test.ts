@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isHandledEventType, routeEvent, HANDLED_EVENT_TYPES } from './router';
 import type { LoadedEvent } from './types';
 import type { RecoveryStore } from './recovery/types';
-import { msgCtx } from './_msgfakes';
+import { msgCtx, tokenCtx } from './_msgfakes';
 
 const recoveryStoreStub: RecoveryStore = {
   async findCaseByPaymentEventId() {
@@ -56,6 +56,7 @@ const ctx = (logger: { info: (...a: unknown[]) => void; error: (...a: unknown[])
   logger,
   recoveryStore: recoveryStoreStub,
   ...msgCtx(),
+  ...tokenCtx(),
 });
 
 describe('isHandledEventType', () => {

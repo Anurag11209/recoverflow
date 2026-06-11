@@ -5,9 +5,11 @@ import { logger } from '@recoverflow/shared';
 import { createProcessingStore } from '../processing/store';
 import { createRecoveryStore } from './store';
 import { createMessageStore } from '../messaging/store';
+import { createTokenStore } from '../payment-update/store';
 import { createConsoleMessagingProvider } from '../messaging/console-provider';
 
 async function clean() {
+  await prisma.paymentUpdateToken.deleteMany();
   await prisma.messageLog.deleteMany();
   await prisma.recoveryAttempt.deleteMany();
   await prisma.recoveryCase.deleteMany();
@@ -32,6 +34,9 @@ const deps = () => ({
   messageStore,
   messagingProvider: createConsoleMessagingProvider(),
   messagingProviderName: 'console',
+  tokenStore: createTokenStore(),
+  clock: { now: () => new Date() },
+  buildPaymentUpdateUrl: (token: string) => `https://app.test/update-payment/${token}`,
   logger,
 });
 

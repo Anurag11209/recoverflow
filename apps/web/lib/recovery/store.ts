@@ -81,6 +81,12 @@ export function createRecoveryStore(): RecoveryStore {
     async updateCaseStatus(caseId: string, status: RecoveryStatus): Promise<void> {
       await prisma.recoveryCase.update({ where: { id: caseId }, data: { status } });
     },
+    async markRecovered(caseId: string, recoveredAmount: number, recoveredAt: Date): Promise<void> {
+      await prisma.recoveryCase.update({
+        where: { id: caseId },
+        data: { status: 'RECOVERED', recoveredAmount, recoveredAt },
+      });
+    },
 
     async listCases(limit = 50): Promise<RecoveryCaseRecord[]> {
       return prisma.recoveryCase.findMany({

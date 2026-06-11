@@ -11,6 +11,9 @@ export type MessageTemplate = (typeof MESSAGE_TEMPLATES)[number];
 /** Mirrors the DB MessageStatus enum structurally (engine stays Prisma-free). */
 export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
 
+/** Mirrors the DB MessageType enum (engine stays Prisma-free). */
+export type MessageType = 'PAYMENT_FAILED' | 'PAYMENT_REMINDER' | 'PAYMENT_RECOVERED';
+
 export interface SendMessageInput {
   phone: string;
   template: MessageTemplate;
@@ -24,7 +27,10 @@ export interface MessagingProvider {
 
 export interface NewMessageLogInput {
   recoveryCaseId: string;
-  recoveryAttemptId: string;
+  // Nullable: recovered/reminder messages are not tied to a specific attempt
+  // (D6). The DB partial unique still enforces one message per attempt when set.
+  recoveryAttemptId: string | null;
+  messageType: MessageType;
   provider: string;
   templateName: MessageTemplate;
   recipientPhone: string | null;
@@ -34,7 +40,7 @@ export interface NewMessageLogInput {
 export interface MessageLogRecord {
   id: string;
   recoveryCaseId: string;
-  recoveryAttemptId: string;
+  recoveryAttemptId: string | null;
   templateName: string;
   status: MessageStatus;
   recipientPhone: string | null;

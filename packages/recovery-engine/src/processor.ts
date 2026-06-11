@@ -4,6 +4,7 @@ import { routeEvent } from './router';
 import type { ProcessOutcome, ProcessingStore } from './types';
 import type { RecoveryStore } from './recovery/types';
 import type { MessageStore, MessagingProvider } from './messaging/message-types';
+import type { Clock, TokenStore } from './payment-update/token-types';
 
 /**
  * Injected dependencies for processing one event (ADR 0001). Bundled into one
@@ -16,6 +17,9 @@ export interface ProcessDeps {
   messageStore: MessageStore;
   messagingProvider: MessagingProvider;
   messagingProviderName: string;
+  tokenStore: TokenStore;
+  clock: Clock;
+  buildPaymentUpdateUrl: (rawToken: string) => string;
   logger: Logger;
 }
 
@@ -39,6 +43,9 @@ export async function processPaymentEvent(
     messageStore,
     messagingProvider,
     messagingProviderName,
+    tokenStore,
+    clock,
+    buildPaymentUpdateUrl,
     logger,
   } = deps;
   const startedAt = Date.now();
@@ -66,6 +73,9 @@ export async function processPaymentEvent(
       messageStore,
       messagingProvider,
       messagingProviderName,
+      tokenStore,
+      clock,
+      buildPaymentUpdateUrl,
     });
     await recordIdempotency(store, {
       provider: event.provider,

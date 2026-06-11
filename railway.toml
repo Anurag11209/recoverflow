@@ -1,0 +1,33 @@
+# Railway config-as-code for the RecoverFlow web service (pnpm + Turborepo monorepo).
+# Builder: Railpack (Railway default). One deployable: apps/web.
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+# Railpack auto-installs workspace deps (corepack + pnpm --frozen-lockfile).
+# We override the build to generate the Prisma client, then build ONLY the web
+# app and its internal deps via Turbo's filtered build.
+buildCommand = "pnpm db:generate && pnpm turbo run build --filter=@recoverflow/web..."
+
+[deploy]
+# Release phase: apply migrations against the managed database BEFORE the new
+# container serves traffic. prisma migrate deploy is non-interactive and only
+# applies already-committed migrations (never generates).
+preDeployCommand = "pnpm db:deploy"
+
+# Boot the production Next.js server. Railway injects $PORT; next start reads it.
+startCommand = "pnpm --filter @recoverflow/web start"
+
+# Restart on crash, with a cap so a crash-loop surfaces instead of hiding.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Only rebuild when code that affects the web service changes (gitignore-style).
+# Doc-only commits (docs/**, *.md) will not trigger a deploy.
+watchPatterns = [
+  "apps/web/**",
+  "packages/**",
+  "package.json",
+  "pnpm-lock.yaml",
+  "turbo.json",
+  "railway.toml",
+]

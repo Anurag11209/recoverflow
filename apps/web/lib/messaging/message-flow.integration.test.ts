@@ -81,7 +81,7 @@ describe('message flow (integration)', () => {
     const attempt = await prisma.recoveryAttempt.findFirstOrThrow({
       where: { recoveryCaseId: rc.id },
     });
-    const msg = await prisma.messageLog.findUniqueOrThrow({
+    const msg = await prisma.messageLog.findFirstOrThrow({
       where: { recoveryAttemptId: attempt.id },
     });
     expect(msg.status).toBe('SENT');

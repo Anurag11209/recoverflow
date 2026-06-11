@@ -34,7 +34,7 @@ export interface NewMessageLogInput {
 export interface MessageLogRecord {
   id: string;
   recoveryCaseId: string;
-  recoveryAttemptId: string;
+  recoveryAttemptId: string | null;
   templateName: string;
   status: MessageStatus;
   recipientPhone: string | null;

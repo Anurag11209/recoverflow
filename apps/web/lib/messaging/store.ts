@@ -39,7 +39,10 @@ export function createMessageStore(): MessageStore {
     },
 
     async findMessageByAttemptId(recoveryAttemptId: string): Promise<MessageLogRecord | null> {
-      const m = await prisma.messageLog.findUnique({
+      // recoveryAttemptId is unique only via a PARTIAL index (where not null),
+      // which Prisma's client does not expose as a findUnique key. findFirst is
+      // equivalent here: the partial unique guarantees at most one match.
+      const m = await prisma.messageLog.findFirst({
         where: { recoveryAttemptId },
         select: SELECT,
       });

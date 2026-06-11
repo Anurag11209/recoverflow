@@ -15,6 +15,11 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().url('DATABASE_URL must be a valid connection URL'),
   NEXT_PUBLIC_APP_URL: z.string().url('NEXT_PUBLIC_APP_URL must be a valid URL'),
+  // Server-side canonical base URL for links embedded in outbound messages
+  // (e.g. WhatsApp payment-update links). Distinct from NEXT_PUBLIC_APP_URL,
+  // which is the browser-facing origin. Defaults to localhost for dev/test so
+  // it need not be set in every environment (avoids env blast radius).
+  APP_BASE_URL: z.string().url('APP_BASE_URL must be a valid URL').default('http://localhost:3000'),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1, 'RAZORPAY_WEBHOOK_SECRET is required'),
   MESSAGING_PROVIDER: z.enum(['console']).default('console'),
 });

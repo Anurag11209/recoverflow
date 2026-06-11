@@ -25,6 +25,20 @@ describe('loadEnv', () => {
     expect(loadEnv(VALID).MESSAGING_PROVIDER).toBe('console');
   });
 
+  it('defaults APP_BASE_URL to localhost', () => {
+    expect(loadEnv(VALID).APP_BASE_URL).toBe('http://localhost:3000');
+  });
+
+  it('accepts an explicit APP_BASE_URL', () => {
+    expect(loadEnv({ ...VALID, APP_BASE_URL: 'https://app.recoverflow.com' }).APP_BASE_URL).toBe(
+      'https://app.recoverflow.com',
+    );
+  });
+
+  it('rejects a malformed APP_BASE_URL', () => {
+    expect(() => loadEnv({ ...VALID, APP_BASE_URL: 'not-a-url' })).toThrow(/APP_BASE_URL/i);
+  });
+
   it('rejects an unsupported MESSAGING_PROVIDER', () => {
     expect(() => loadEnv({ ...VALID, MESSAGING_PROVIDER: 'carrier-pigeon' })).toThrow(
       /MESSAGING_PROVIDER/i,

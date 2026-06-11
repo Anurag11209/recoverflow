@@ -112,28 +112,33 @@ export default async function CasesPage({ searchParams }: { searchParams: Search
       ) : (
         <ul className="divide-y divide-gray-100 rounded-lg border border-gray-200">
           {cases.map((c: CaseListItem) => (
-            <li key={c.token} className="flex items-center justify-between gap-4 px-4 py-3">
-              <div className="min-w-0 space-y-1">
-                <div className="flex items-center gap-2">
-                  <StatusBadge status={c.status} />
-                  <span className="truncate text-sm font-medium text-gray-900">
-                    {c.customerEmail ?? c.customerPhone ?? '—'}
-                  </span>
+            <li key={c.token}>
+              <Link
+                href={`/dashboard/cases/${c.token}`}
+                className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-gray-50"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={c.status} />
+                    <span className="truncate text-sm font-medium text-gray-900">
+                      {c.customerEmail ?? c.customerPhone ?? '—'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {c.failureCategory ?? 'Unknown'} · {age(c.createdAt)}
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  {c.failureCategory ?? 'Unknown'} · {age(c.createdAt)}
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {c.status === 'RECOVERED' && c.recoveredAmount !== null
-                    ? money(c.recoveredAmount, c.currency)
-                    : money(c.amount, c.currency)}
-                </p>
-                {c.status === 'RECOVERED' && c.recoveredAmount !== null ? (
-                  <p className="text-xs text-green-600">recovered</p>
-                ) : null}
-              </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {c.status === 'RECOVERED' && c.recoveredAmount !== null
+                      ? money(c.recoveredAmount, c.currency)
+                      : money(c.amount, c.currency)}
+                  </p>
+                  {c.status === 'RECOVERED' && c.recoveredAmount !== null ? (
+                    <p className="text-xs text-green-600">recovered</p>
+                  ) : null}
+                </div>
+              </Link>
             </li>
           ))}
         </ul>

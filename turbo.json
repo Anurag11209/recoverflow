@@ -8,6 +8,6 @@
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {},
-    "typecheck": {}
+    "typecheck": { "cache": false }
   }
 }

@@ -19,19 +19,19 @@ enum UserRole {
 }
 
 model Merchant {
-  id                   String    @id @default(cuid())
-  name                 String
-  email                String    @unique
-  processor            Processor @default(RAZORPAY)
+  id                    String    @id @default(cuid())
+  name                  String
+  email                 String    @unique
+  processor             Processor @default(RAZORPAY)
   // Per-merchant webhook attribution (Phase 8 Step 0). webhookToken routes the
   // public webhook URL; razorpayWebhookSecret verifies that merchant's HMAC;
   // razorpayAccountId is captured trust-on-first-use and cross-checked after.
   // NOTE (Phase 9): encrypt razorpayWebhookSecret at rest.
-  webhookToken         String    @unique @default(cuid())
-  razorpayWebhookSecret String   @default("")
-  razorpayAccountId    String?   @unique
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  webhookToken          String    @unique @default(cuid())
+  razorpayWebhookSecret String    @default("")
+  razorpayAccountId     String?   @unique
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   users               User[]
   customers           Customer[]
@@ -189,6 +189,13 @@ model RecoveryCase {
   @@index([merchantId, status])
   @@index([customerId])
   @@index([status])
+  // Phase 8 Module 8 — dashboard scalability (100k+ rows):
+  // cases list default sort + keyset pagination (merchantId, createdAt DESC, id DESC)
+  @@index([merchantId, createdAt, id])
+  // status-filtered cases list + ordering (supersedes the [merchantId, status] prefix)
+  @@index([merchantId, status, createdAt])
+  // analytics revenue trend (merchantId + recoveredAt range scan)
+  @@index([merchantId, recoveredAt])
 }
 
 model RecoveryAttempt {

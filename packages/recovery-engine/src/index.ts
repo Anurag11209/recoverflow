@@ -56,3 +56,24 @@ export type {
   NewMessageLogInput,
   MessageLogRecord,
 } from './messaging/message-types';
+
+// Payment update tokens (Phase 7)
+export {
+  generateToken,
+  hashToken,
+  expiresAtFrom,
+  createPaymentUpdateToken,
+  validateRawToken,
+  consumeToken,
+} from './payment-update/token-service';
+export type { TokenDeps } from './payment-update/token-service';
+export type {
+  RawToken,
+  TokenHash,
+  TokenRecord,
+  Clock,
+  CreateTokenInput,
+  TokenStore,
+  ConsumeResult,
+  ValidateResult,
+} from './payment-update/token-types';

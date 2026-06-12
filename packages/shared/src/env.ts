@@ -25,6 +25,15 @@ const envSchema = z.object({
   // run without it. The secret-cipher enforces presence + 32-byte length at
   // call time (the only place a key is actually required).
   APP_ENCRYPTION_KEY: z.string().optional(),
+  // Stripe billing (M4). All optional at load time so dev/test/CI environments
+  // that never call Stripe still load; presence is enforced where actually used
+  // (checkout, webhook verification). Populated with test-mode values in M4-2/3.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_PRICE_STARTER: z.string().optional(),
+  STRIPE_PRICE_GROWTH: z.string().optional(),
+  STRIPE_PRICE_BUSINESS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

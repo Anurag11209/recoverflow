@@ -21,6 +21,7 @@ jobs:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       RAZORPAY_WEBHOOK_SECRET: whsec_ci
+      APP_ENCRYPTION_KEY: cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -49,6 +50,7 @@ jobs:
           DATABASE_URL=postgresql://ci:ci@localhost:5432/recoverflow?schema=public
           NEXT_PUBLIC_APP_URL=http://localhost:3000
           RAZORPAY_WEBHOOK_SECRET=whsec_ci
+          APP_ENCRYPTION_KEY=cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
           ENVEOF
       - name: Build
         run: pnpm build
@@ -74,6 +76,7 @@ jobs:
       DATABASE_URL: postgresql://recoverflow:recoverflow@localhost:5432/recoverflow?schema=public
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       RAZORPAY_WEBHOOK_SECRET: whsec_ci
+      APP_ENCRYPTION_KEY: cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
     steps:
       - name: Checkout
         uses: actions/checkout@v5

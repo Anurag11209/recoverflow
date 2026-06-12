@@ -2,12 +2,34 @@ import { redirect } from 'next/navigation';
 import { env } from '@recoverflow/shared';
 import { getCurrentSession } from '@/lib/auth/current';
 import { decryptSecret } from '@/lib/crypto/secret-cipher';
+import { recentAuditEvents } from '@/lib/settings/audit';
 import { CopyField } from './copy-field';
 import { RegenerateSecretButton } from './regenerate-button';
+import { ProfileNameForm } from './profile-form';
 
 // Reads the session cookie + decrypts the webhook secret for display, so it
 // must run per-request and never be cached.
 export const dynamic = 'force-dynamic';
+
+const AUDIT_LABELS: Record<string, string> = {
+  'profile.updated': 'Profile updated',
+  'webhook_secret.regenerated': 'Webhook secret regenerated',
+};
+
+const auditTime = new Intl.DateTimeFormat('en-IN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+function auditDetail(action: string, metadata: unknown): string | null {
+  if (action === 'profile.updated' && metadata && typeof metadata === 'object') {
+    const m = metadata as Record<string, unknown>;
+    if (m.field === 'name' && typeof m.to === 'string') {
+      return `Name changed to “${m.to}”`;
+    }
+  }
+  return null;
+}
 
 export default async function SettingsPage() {
   const current = await getCurrentSession();
@@ -19,6 +41,7 @@ export default async function SettingsPage() {
   const webhookUrl = `${env.NEXT_PUBLIC_APP_URL}/api/webhooks/razorpay/${merchant.webhookToken}`;
   // Decrypt for display only; the stored value stays encrypted at rest.
   const webhookSecret = decryptSecret(merchant.razorpayWebhookSecret);
+  const auditEvents = await recentAuditEvents(merchant.id, 10);
 
   return (
     <div className="flex flex-col gap-8">
@@ -32,16 +55,13 @@ export default async function SettingsPage() {
       {/* Profile */}
       <section className="rounded-lg border border-gray-200 p-5">
         <h2 className="text-sm font-semibold text-gray-900">Business profile</h2>
-        <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <dt className="text-sm text-gray-500">Business name</dt>
-            <dd className="mt-1 text-sm text-gray-900">{merchant.name}</dd>
-          </div>
+        <div className="mt-4 flex flex-col gap-4">
+          <ProfileNameForm initialName={merchant.name} />
           <div>
             <dt className="text-sm text-gray-500">Email</dt>
             <dd className="mt-1 text-sm text-gray-900">{merchant.email}</dd>
           </div>
-        </dl>
+        </div>
       </section>
 
       {/* Webhook configuration */}
@@ -58,6 +78,29 @@ export default async function SettingsPage() {
             <RegenerateSecretButton />
           </div>
         </div>
+      </section>
+
+      {/* Recent activity */}
+      <section className="rounded-lg border border-gray-200 p-5">
+        <h2 className="text-sm font-semibold text-gray-900">Recent activity</h2>
+        {auditEvents.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500">No account changes yet.</p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-3">
+            {auditEvents.map((e) => {
+              const detail = auditDetail(e.action, e.metadata);
+              return (
+                <li key={e.id} className="flex flex-col gap-0.5">
+                  <span className="text-sm text-gray-900">
+                    {AUDIT_LABELS[e.action] ?? e.action}
+                  </span>
+                  {detail ? <span className="text-xs text-gray-500">{detail}</span> : null}
+                  <span className="text-xs text-gray-400">{auditTime.format(e.createdAt)}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
     </div>
   );

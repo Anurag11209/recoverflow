@@ -1,4 +1,4 @@
-import { env } from '@recoverflow/shared';
+import { getEnv, type Env } from '@recoverflow/shared';
 import type { PlanTier } from '@recoverflow/db';
 
 export interface PlanDefinition {
@@ -13,7 +13,7 @@ export interface PlanDefinition {
   selfServe: boolean;
   features: string[];
   /** Env var holding this plan's Stripe price id (populated in M4-2). null for Enterprise. */
-  stripePriceIdEnvKey: keyof typeof env | null;
+  stripePriceIdEnvKey: keyof Env | null;
 }
 
 /**
@@ -101,7 +101,7 @@ export function selfServePlans(): PlanDefinition[] {
 export function stripePriceIdFor(tier: PlanTier): string | null {
   const key = PLANS[tier].stripePriceIdEnvKey;
   if (!key) return null;
-  const value = env[key];
+  const value = getEnv()[key];
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 

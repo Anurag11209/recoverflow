@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { processPaymentEvent } from '@recoverflow/recovery-engine';
-import { logger, env } from '@recoverflow/shared';
+import { logger, getEnv } from '@recoverflow/shared';
 import { ValidationError } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
 import { createProcessingStore } from '@/lib/processing/store';
@@ -30,10 +30,10 @@ export const POST = withErrorHandling(async (request: Request) => {
       recoveryStore: createRecoveryStore(),
       messageStore: createMessageStore(),
       messagingProvider: createConsoleMessagingProvider(),
-      messagingProviderName: env.MESSAGING_PROVIDER,
+      messagingProviderName: getEnv().MESSAGING_PROVIDER,
       tokenStore: createTokenStore(),
       clock: { now: () => new Date() },
-      buildPaymentUpdateUrl: (token: string) => `${env.APP_BASE_URL}/update-payment/${token}`,
+      buildPaymentUpdateUrl: (token: string) => `${getEnv().APP_BASE_URL}/update-payment/${token}`,
       logger,
     },
     paymentEventId,

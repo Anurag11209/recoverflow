@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { env } from '@recoverflow/shared';
+import { getEnv } from '@recoverflow/shared';
 import { getCurrentSession } from '@/lib/auth/current';
 import { decryptSecret } from '@/lib/crypto/secret-cipher';
 import { recentAuditEvents } from '@/lib/settings/audit';
@@ -38,7 +38,7 @@ export default async function SettingsPage() {
   }
   const { merchant } = current.user;
 
-  const webhookUrl = `${env.NEXT_PUBLIC_APP_URL}/api/webhooks/razorpay/${merchant.webhookToken}`;
+  const webhookUrl = `${getEnv().NEXT_PUBLIC_APP_URL}/api/webhooks/razorpay/${merchant.webhookToken}`;
   // Decrypt for display only; the stored value stays encrypted at rest.
   const webhookSecret = decryptSecret(merchant.razorpayWebhookSecret);
   const auditEvents = await recentAuditEvents(merchant.id, 10);

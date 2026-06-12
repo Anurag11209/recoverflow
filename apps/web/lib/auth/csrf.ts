@@ -1,4 +1,4 @@
-import { env } from '@recoverflow/shared';
+import { getEnv } from '@recoverflow/shared';
 import { ForbiddenError } from '@recoverflow/shared';
 
 /** True when `origin` matches the app's own origin (scheme + host + port). */
@@ -18,7 +18,7 @@ export function isTrustedOrigin(origin: string | null, allowedOrigin: string): b
  */
 export function assertSameOrigin(request: Request): void {
   const origin = request.headers.get('origin');
-  if (!isTrustedOrigin(origin, env.NEXT_PUBLIC_APP_URL)) {
+  if (!isTrustedOrigin(origin, getEnv().NEXT_PUBLIC_APP_URL)) {
     throw new ForbiddenError('Cross-origin request rejected', { code: 'CSRF_REJECTED' });
   }
 }

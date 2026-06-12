@@ -52,33 +52,19 @@ export function loadEnv(input: NodeJS.ProcessEnv = process.env): Env {
   return parsed.data;
 }
 
-// Lazily evaluate so merely importing this module does not trigger validation.
-// `next build` collects page data by importing route modules; if env were parsed
-// at import, the build would throw whenever build-time env is absent (e.g. on
-// Railway, where service variables are not injected into the build step). With a
-// Proxy, validation runs on first *property access* (request/runtime) and is then
-// cached — so production is still validated, exactly when env is actually needed.
+// Lazily evaluate via a FUNCTION (not a Proxy/const). `next build` collects page
+// data by importing route modules; anything evaluated at import time runs during
+// the build, where Railway does not inject service variables. A Proxy still gets
+// "touched" by the bundler when re-exported through the barrel (property/enumeration
+// probes trigger the trap -> loadEnv() -> throw). A plain function is never probed:
+// validation runs ONLY when getEnv() is explicitly CALLED, which all call sites do
+// inside request-time functions. The result is cached after first call.
 let cachedEnv: Env | null = null;
-function resolveEnv(): Env {
+export function getEnv(): Env {
   if (!cachedEnv) {
     cachedEnv = loadEnv();
   }
   return cachedEnv;
 }
-
-export const env = new Proxy({} as Env, {
-  get(_target, prop) {
-    return resolveEnv()[prop as keyof Env];
-  },
-  has(_target, prop) {
-    return prop in resolveEnv();
-  },
-  ownKeys() {
-    return Reflect.ownKeys(resolveEnv() as object);
-  },
-  getOwnPropertyDescriptor(_target, prop) {
-    return Object.getOwnPropertyDescriptor(resolveEnv(), prop);
-  },
-}) as Env;
 
 export { envSchema };

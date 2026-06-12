@@ -40,6 +40,22 @@ model Merchant {
   recoveryCases       RecoveryCase[]
   messageLogs         MessageLog[]
   paymentUpdateTokens PaymentUpdateToken[]
+  auditLogs           AuditLog[]
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  // Nullable: the acting user may be unavailable (e.g. system-initiated change).
+  userId     String?
+  // Stable action key, e.g. "profile.updated" or "webhook_secret.regenerated".
+  action     String
+  // Non-sensitive change context only. NEVER stores secret values.
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([merchantId, createdAt])
 }
 
 model User {

@@ -24,7 +24,7 @@ export const POST = withErrorHandling(async (request: Request) => {
     throw new UnauthorizedError('Authentication required');
   }
 
-  await regenerateWebhookSecret(current.user.merchant.id);
+  await regenerateWebhookSecret(current.user.merchant.id, current.user.id);
 
   return NextResponse.json({ ok: true });
 });

@@ -30,6 +30,7 @@ describe('pageTitleFor', () => {
     expect(pageTitleFor('/dashboard/cases')).toBe('Recovery Cases');
     expect(pageTitleFor('/dashboard/cases/tok_abc')).toBe('Recovery Cases');
     expect(pageTitleFor('/dashboard/analytics')).toBe('Analytics');
+    expect(pageTitleFor('/dashboard/billing')).toBe('Billing');
     expect(pageTitleFor('/dashboard/settings')).toBe('Settings');
   });
 
@@ -42,6 +43,7 @@ describe('pageTitleFor', () => {
       'Overview',
       'Recovery Cases',
       'Analytics',
+      'Billing',
       'Settings',
     ]);
   });

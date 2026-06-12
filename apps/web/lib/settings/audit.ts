@@ -46,7 +46,9 @@ export async function recordAuditEvent(entry: AuditEntry): Promise<void> {
 export async function recentAuditEvents(merchantId: string, limit = 20) {
   return prisma.auditLog.findMany({
     where: { merchantId },
-    orderBy: { createdAt: 'desc' },
+    // createdAt alone is non-deterministic for entries in the same millisecond;
+    // id is a stable secondary sort so ordering is well-defined.
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: limit,
   });
 }

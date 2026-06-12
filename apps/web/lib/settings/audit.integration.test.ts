@@ -44,6 +44,9 @@ describe('audit service (integration)', () => {
 
   it('orders multiple entries newest-first', async () => {
     await recordAuditEvent({ merchantId, action: 'profile.updated' });
+    // Ensure a distinct createdAt so the assertion tests chronological ordering,
+    // not the same-millisecond tiebreaker.
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await recordAuditEvent({ merchantId, action: 'webhook_secret.regenerated' });
     const events = await recentAuditEvents(merchantId);
     expect(events.map((e) => e.action)).toEqual(['webhook_secret.regenerated', 'profile.updated']);

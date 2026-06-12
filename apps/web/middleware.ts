@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { env } from '@recoverflow/shared';
+import { getEnv } from '@recoverflow/shared';
 import { SESSION_COOKIE_NAME } from './lib/auth/session-core';
 import { rotateSessionToken } from './lib/auth/session';
 
@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
           httpOnly: true,
           sameSite: 'lax',
           path: '/',
-          secure: env.NODE_ENV === 'production',
+          secure: getEnv().NODE_ENV === 'production',
           expires: rotated.expiresAt,
         });
       }

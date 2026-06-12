@@ -1,5 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { env } from '@recoverflow/shared';
+import { getEnv } from '@recoverflow/shared';
 
 /**
  * Symmetric encryption for secrets at rest (e.g. per-merchant Razorpay webhook
@@ -19,7 +19,7 @@ const IV_BYTES = 12; // 96-bit nonce, standard for GCM
 const KEY_BYTES = 32; // AES-256
 
 function key(): Buffer {
-  const raw = env.APP_ENCRYPTION_KEY;
+  const raw = getEnv().APP_ENCRYPTION_KEY;
   if (!raw) {
     throw new Error('APP_ENCRYPTION_KEY is not set; cannot encrypt/decrypt secrets');
   }

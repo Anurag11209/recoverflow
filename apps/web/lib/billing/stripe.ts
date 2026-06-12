@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { env } from '@recoverflow/shared';
+import { getEnv } from '@recoverflow/shared';
 
 let client: Stripe | null = null;
 
@@ -10,7 +10,7 @@ let client: Stripe | null = null;
  */
 export function getStripe(): Stripe {
   if (client) return client;
-  const key = env.STRIPE_SECRET_KEY;
+  const key = getEnv().STRIPE_SECRET_KEY;
   if (!key) {
     throw new Error('STRIPE_SECRET_KEY is not set; billing is unavailable in this environment.');
   }

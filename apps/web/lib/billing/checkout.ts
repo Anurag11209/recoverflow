@@ -1,6 +1,6 @@
 import { prisma } from '@recoverflow/db';
 import type { PlanTier } from '@recoverflow/db';
-import { env, ValidationError } from '@recoverflow/shared';
+import { getEnv, ValidationError } from '@recoverflow/shared';
 import { getStripe } from './stripe';
 import { planFor, stripePriceIdFor } from './plans';
 
@@ -72,8 +72,8 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: merchantId,
     metadata: { merchantId, tier },
-    success_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/billing?status=success`,
-    cancel_url: `${env.NEXT_PUBLIC_APP_URL}/dashboard/billing?status=cancelled`,
+    success_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing?status=success`,
+    cancel_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing?status=cancelled`,
   });
 
   if (!session.url) {

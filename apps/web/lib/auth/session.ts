@@ -6,6 +6,7 @@ import {
   isSessionExpired,
   sessionExpiryFrom,
   shouldRenewSession,
+  SESSION_ROTATION_GRACE_MS,
 } from './session-core';
 
 export interface SessionMeta {
@@ -62,6 +63,56 @@ export async function validateSessionToken(token: string): Promise<ValidatedSess
 
   const { user, ...session } = found;
   return { session, user };
+}
+
+/**
+ * Rotates the session token when the session is within its renewal window.
+ * Mints a NEW token (new row, full lifetime) and shrinks the OLD row's expiry
+ * to a short grace window rather than deleting it — so the in-flight request,
+ * whose render still reads the old cookie, continues to validate. The browser
+ * gets the new cookie on the response and uses it next request; the old row
+ * lapses (and is cleaned up by the normal expiry path) after the grace.
+ *
+ * Returns the new raw token + expiry when rotation happened, or null when the
+ * session is absent, expired, or not yet due for renewal. Node-runtime only
+ * (uses node:crypto + Prisma); intended to be called from middleware.
+ */
+export async function rotateSessionToken(
+  token: string,
+  meta: SessionMeta = {},
+): Promise<{ token: string; expiresAt: Date } | null> {
+  const found = await prisma.session.findUnique({
+    where: { tokenHash: hashSessionToken(token) },
+  });
+  if (!found) return null;
+
+  const now = new Date();
+  if (isSessionExpired(found.expiresAt, now)) {
+    await prisma.session.delete({ where: { id: found.id } });
+    return null;
+  }
+  if (!shouldRenewSession(found.expiresAt, now)) return null;
+
+  const newToken = generateSessionToken();
+  const newExpiresAt = sessionExpiryFrom(now);
+  const graceExpiresAt = new Date(now.getTime() + SESSION_ROTATION_GRACE_MS);
+
+  await prisma.$transaction([
+    // Shrink the old row's life to the grace window (keeps the in-flight request working).
+    prisma.session.update({ where: { id: found.id }, data: { expiresAt: graceExpiresAt } }),
+    // Mint the replacement with a fresh token and full lifetime.
+    prisma.session.create({
+      data: {
+        userId: found.userId,
+        tokenHash: hashSessionToken(newToken),
+        expiresAt: newExpiresAt,
+        ip: meta.ip ?? found.ip,
+        userAgent: meta.userAgent ?? found.userAgent,
+      },
+    }),
+  ]);
+
+  return { token: newToken, expiresAt: newExpiresAt };
 }
 
 /** Logout: removes one session. */

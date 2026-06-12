@@ -1,17 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { env } from '@recoverflow/shared';
+import { SESSION_COOKIE_NAME } from './lib/auth/session-core';
+import { rotateSessionToken } from './lib/auth/session';
 
-// Mirrors SESSION_COOKIE_NAME in lib/auth/session-core.ts. Duplicated as a
-// literal because middleware runs on the Edge runtime and cannot import that
-// module (it pulls in node:crypto). Keep the two in sync.
-const SESSION_COOKIE_NAME = 'rf_session';
+// Node.js runtime (stable in Next 15.5): middleware needs node:crypto + Prisma
+// to validate and rotate the session token. The Edge runtime cannot do either.
+export const config = {
+  runtime: 'nodejs',
+  matcher: ['/login', '/register', '/dashboard', '/dashboard/:path*'],
+};
 
 /**
- * First-pass auth gate. The Edge runtime has no database access, so this only
- * checks whether a session cookie is present — never whether it's valid. The
- * /dashboard server component performs the authoritative DB-backed check.
+ * Auth gate + session-token rotation.
+ *
+ * Gate: presence-only redirects (unauthenticated away from /dashboard,
+ * authenticated away from /login|/register). The authoritative DB-backed check
+ * still happens in the /dashboard server components.
+ *
+ * Rotation (audit F-1): on a protected route, if the session is within its
+ * renewal window, mint a fresh token and set it on the response. The old token
+ * stays valid for a short grace window (see rotateSessionToken) so THIS
+ * request's render — which still reads the old cookie — does not see a logout.
  */
-export function middleware(request: NextRequest) {
-  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  const hasSession = Boolean(token);
   const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname === '/login' || pathname === '/register';
@@ -29,9 +42,29 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
-}
+  const response = NextResponse.next();
 
-export const config = {
-  matcher: ['/login', '/register', '/dashboard', '/dashboard/:path*'],
-};
+  // Rotate on protected routes when due. Never block the request on a rotation
+  // failure — auth still holds via the existing (un-rotated) token.
+  if (isProtected && token) {
+    try {
+      const rotated = await rotateSessionToken(token, {
+        ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+      });
+      if (rotated) {
+        response.cookies.set(SESSION_COOKIE_NAME, rotated.token, {
+          httpOnly: true,
+          sameSite: 'lax',
+          path: '/',
+          secure: env.NODE_ENV === 'production',
+          expires: rotated.expiresAt,
+        });
+      }
+    } catch {
+      // Rotation is best-effort; a failure must not break navigation.
+    }
+  }
+
+  return response;
+}

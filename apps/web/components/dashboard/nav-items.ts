@@ -7,6 +7,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Overview', href: '/dashboard' },
   { label: 'Recovery Cases', href: '/dashboard/cases' },
   { label: 'Analytics', href: '/dashboard/analytics' },
+  { label: 'Settings', href: '/dashboard/settings' },
 ];
 
 /**

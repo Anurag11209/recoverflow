@@ -30,13 +30,19 @@ describe('pageTitleFor', () => {
     expect(pageTitleFor('/dashboard/cases')).toBe('Recovery Cases');
     expect(pageTitleFor('/dashboard/cases/tok_abc')).toBe('Recovery Cases');
     expect(pageTitleFor('/dashboard/analytics')).toBe('Analytics');
+    expect(pageTitleFor('/dashboard/settings')).toBe('Settings');
   });
 
   it('falls back to Dashboard for an unknown route', () => {
     expect(pageTitleFor('/dashboard/unknown')).toBe('Dashboard');
   });
 
-  it('exposes exactly three nav items in order', () => {
-    expect(NAV_ITEMS.map((i) => i.label)).toEqual(['Overview', 'Recovery Cases', 'Analytics']);
+  it('exposes the nav items in order', () => {
+    expect(NAV_ITEMS.map((i) => i.label)).toEqual([
+      'Overview',
+      'Recovery Cases',
+      'Analytics',
+      'Settings',
+    ]);
   });
 });

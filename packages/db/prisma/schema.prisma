@@ -18,6 +18,23 @@ enum UserRole {
   MEMBER
 }
 
+enum PlanTier {
+  STARTER
+  GROWTH
+  BUSINESS
+  ENTERPRISE
+}
+
+// Mirrors the Stripe subscription statuses we act on. INCOMPLETE/PAST_DUE/
+// CANCELED gate access; ACTIVE/TRIALING grant it.
+enum BillingStatus {
+  INCOMPLETE
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
 model Merchant {
   id                    String    @id @default(cuid())
   name                  String
@@ -41,6 +58,7 @@ model Merchant {
   messageLogs         MessageLog[]
   paymentUpdateTokens PaymentUpdateToken[]
   auditLogs           AuditLog[]
+  billingSubscription BillingSubscription?
 }
 
 model AuditLog {
@@ -124,6 +142,25 @@ model Subscription {
 
   @@index([merchantId])
   @@index([customerId])
+}
+
+// The MERCHANT'S OWN subscription to RecoverFlow (distinct from the dunning
+// `Subscription` model above, which tracks a merchant's CUSTOMER'S subscription).
+// One per merchant. Stripe fields are nullable until checkout (M4-2) populates them.
+model BillingSubscription {
+  id                   String        @id @default(cuid())
+  merchantId           String        @unique
+  merchant             Merchant      @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  plan                 PlanTier      @default(STARTER)
+  status               BillingStatus @default(INCOMPLETE)
+  stripeCustomerId     String?       @unique
+  stripeSubscriptionId String?       @unique
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean       @default(false)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([status])
 }
 
 model PaymentEvent {

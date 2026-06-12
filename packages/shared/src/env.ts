@@ -52,5 +52,33 @@ export function loadEnv(input: NodeJS.ProcessEnv = process.env): Env {
   return parsed.data;
 }
 
-export const env = loadEnv();
+// Lazily evaluate so merely importing this module does not trigger validation.
+// `next build` collects page data by importing route modules; if env were parsed
+// at import, the build would throw whenever build-time env is absent (e.g. on
+// Railway, where service variables are not injected into the build step). With a
+// Proxy, validation runs on first *property access* (request/runtime) and is then
+// cached — so production is still validated, exactly when env is actually needed.
+let cachedEnv: Env | null = null;
+function resolveEnv(): Env {
+  if (!cachedEnv) {
+    cachedEnv = loadEnv();
+  }
+  return cachedEnv;
+}
+
+export const env = new Proxy({} as Env, {
+  get(_target, prop) {
+    return resolveEnv()[prop as keyof Env];
+  },
+  has(_target, prop) {
+    return prop in resolveEnv();
+  },
+  ownKeys() {
+    return Reflect.ownKeys(resolveEnv() as object);
+  },
+  getOwnPropertyDescriptor(_target, prop) {
+    return Object.getOwnPropertyDescriptor(resolveEnv(), prop);
+  },
+}) as Env;
+
 export { envSchema };

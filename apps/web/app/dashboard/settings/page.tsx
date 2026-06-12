@@ -3,6 +3,7 @@ import { env } from '@recoverflow/shared';
 import { getCurrentSession } from '@/lib/auth/current';
 import { decryptSecret } from '@/lib/crypto/secret-cipher';
 import { CopyField } from './copy-field';
+import { RegenerateSecretButton } from './regenerate-button';
 
 // Reads the session cookie + decrypts the webhook secret for display, so it
 // must run per-request and never be cached.
@@ -53,6 +54,9 @@ export default async function SettingsPage() {
         <div className="mt-4 flex flex-col gap-4">
           <CopyField label="Webhook URL" value={webhookUrl} />
           <CopyField label="Webhook secret" value={webhookSecret} secret />
+          <div className="border-t border-gray-100 pt-4">
+            <RegenerateSecretButton />
+          </div>
         </div>
       </section>
     </div>

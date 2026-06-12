@@ -21,6 +21,10 @@ const envSchema = z.object({
   // it need not be set in every environment (avoids env blast radius).
   APP_BASE_URL: z.string().url('APP_BASE_URL must be a valid URL').default('http://localhost:3000'),
   MESSAGING_PROVIDER: z.enum(['console']).default('console'),
+  // Optional at load time so unit/dev environments that never encrypt can
+  // run without it. The secret-cipher enforces presence + 32-byte length at
+  // call time (the only place a key is actually required).
+  APP_ENCRYPTION_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

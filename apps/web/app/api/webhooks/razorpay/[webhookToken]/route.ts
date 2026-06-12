@@ -4,6 +4,7 @@ import { logger } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
 import { assertWithinRateLimit, RATE_LIMITS } from '@/lib/rate-limit/guard';
 import { processWebhook } from '@/lib/razorpay/service';
+import { decryptSecret } from '@/lib/crypto/secret-cipher';
 
 // Webhooks must never be cached or statically optimized, and must read the raw
 // body (request.text()) — re-serializing via .json() would change the bytes and
@@ -39,7 +40,7 @@ export const POST = withErrorHandling(async (request: Request, ctx: Ctx) => {
     merchantId: merchant.id,
     rawBody,
     signature,
-    secret: merchant.razorpayWebhookSecret,
+    secret: decryptSecret(merchant.razorpayWebhookSecret),
     eventId,
     expectedAccountId: merchant.razorpayAccountId,
   });

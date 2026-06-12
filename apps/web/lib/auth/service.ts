@@ -4,6 +4,7 @@ import type { User } from '@recoverflow/db';
 import { ConflictError } from '@recoverflow/shared';
 import { hashPassword, verifyPassword, DUMMY_PASSWORD_HASH } from './password';
 import { createSession, type SessionMeta } from './session';
+import { encryptSecret } from '../crypto/secret-cipher';
 import type { LoginInput, RegisterInput } from './validation';
 
 function isUniqueConstraintError(err: unknown): boolean {
@@ -32,7 +33,7 @@ export async function registerMerchant(input: RegisterInput, meta: SessionMeta =
           email: input.email,
           // Per-merchant Razorpay webhook secret (Phase 8). webhookToken rides its
           // schema cuid default (a routing key, not a secret).
-          razorpayWebhookSecret: `whsec_${randomBytes(24).toString('hex')}`,
+          razorpayWebhookSecret: encryptSecret(`whsec_${randomBytes(24).toString('hex')}`),
         },
       });
       return tx.user.create({

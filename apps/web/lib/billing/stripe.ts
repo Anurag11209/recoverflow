@@ -17,3 +17,20 @@ export function getStripe(): Stripe {
   client = new Stripe(key, { apiVersion: '2026-05-27.dahlia' });
   return client;
 }
+
+/**
+ * Verifies a Stripe webhook delivery and returns the typed event. Uses the raw
+ * request body (never re-serialized) and the `stripe-signature` header against
+ * STRIPE_WEBHOOK_SECRET. Throws if the secret is unset or the signature is
+ * invalid/expired — the route turns that into a 400 so Stripe retries.
+ */
+export function constructStripeEvent(rawBody: string, signature: string | null): Stripe.Event {
+  const secret = getEnv().STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    throw new Error('STRIPE_WEBHOOK_SECRET is not set; cannot verify Stripe webhooks.');
+  }
+  if (!signature) {
+    throw new Error('Missing stripe-signature header');
+  }
+  return getStripe().webhooks.constructEvent(rawBody, signature, secret);
+}

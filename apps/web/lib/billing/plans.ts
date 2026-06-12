@@ -105,6 +105,20 @@ export function stripePriceIdFor(tier: PlanTier): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+/**
+ * Reverse lookup: the self-serve plan whose configured Stripe price id matches,
+ * or null if none. Used by the Stripe webhook to derive the plan from the price
+ * on a subscription (the price is the source of truth for what was bought).
+ */
+export function tierForStripePriceId(priceId: string): PlanTier | null {
+  for (const tier of PLAN_ORDER) {
+    if (PLANS[tier].selfServe && stripePriceIdFor(tier) === priceId) {
+      return tier;
+    }
+  }
+  return null;
+}
+
 /** Human-readable monthly price, e.g. "$29/mo" or "Custom". */
 export function formatPrice(plan: PlanDefinition): string {
   if (plan.priceCents === null) return 'Custom';

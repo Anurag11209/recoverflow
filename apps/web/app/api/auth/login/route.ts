@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { UnauthorizedError, ValidationError } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
 import { assertSameOrigin } from '@/lib/auth/csrf';
+import { assertWithinRateLimit, clientIp, RATE_LIMITS } from '@/lib/rate-limit/guard';
 import { loginSchema } from '@/lib/auth/validation';
 import { authenticate } from '@/lib/auth/service';
 import { createSession } from '@/lib/auth/session';
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export const POST = withErrorHandling(async (request: Request) => {
   assertSameOrigin(request);
+  assertWithinRateLimit('login', clientIp(request), RATE_LIMITS.auth);
 
   const parsed = loginSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

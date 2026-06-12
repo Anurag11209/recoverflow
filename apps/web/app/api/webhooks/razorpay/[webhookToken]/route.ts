@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@recoverflow/db';
 import { logger } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
+import { assertWithinRateLimit, RATE_LIMITS } from '@/lib/rate-limit/guard';
 import { processWebhook } from '@/lib/razorpay/service';
 
 // Webhooks must never be cached or statically optimized, and must read the raw
@@ -16,6 +17,9 @@ type Ctx = { params: Promise<{ webhookToken: string }> };
 // secret. NO assertSameOrigin — webhooks are cross-origin; the HMAC is the auth.
 export const POST = withErrorHandling(async (request: Request, ctx: Ctx) => {
   const { webhookToken } = await ctx.params;
+  // Keyed by token, not IP: all Razorpay deliveries share Razorpay's IPs,
+  // so per-IP would throttle every merchant together.
+  assertWithinRateLimit('webhook', webhookToken, RATE_LIMITS.webhook);
 
   // Resolve the merchant BEFORE touching the (untrusted) body.
   const merchant = await prisma.merchant.findUnique({

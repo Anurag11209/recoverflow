@@ -12,6 +12,9 @@ import { createHash, randomBytes } from 'node:crypto';
 export const SESSION_COOKIE_NAME = 'rf_session';
 export const SESSION_DURATION_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 export const SESSION_RENEWAL_THRESHOLD_MS = SESSION_DURATION_MS / 2; // sliding renewal at half-life
+// On rotation the old token stays valid for this grace window so an in-flight
+// request (whose render still carries the old cookie) does not see a logout.
+export const SESSION_ROTATION_GRACE_MS = 60_000; // 60s
 
 export function generateSessionToken(): string {
   return randomBytes(32).toString('base64url');

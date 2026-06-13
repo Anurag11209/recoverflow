@@ -155,6 +155,7 @@ model BillingSubscription {
   status               BillingStatus @default(INCOMPLETE)
   stripeCustomerId     String?       @unique
   stripeSubscriptionId String?       @unique
+  currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean       @default(false)
   createdAt            DateTime      @default(now())

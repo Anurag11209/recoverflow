@@ -1,12 +1,20 @@
 import { prisma } from '@recoverflow/db';
-import type { PlanTier } from '@recoverflow/db';
-import { getEnv, ValidationError } from '@recoverflow/shared';
+import type { BillingStatus, PlanTier } from '@recoverflow/db';
+import { ConflictError, getEnv, ValidationError } from '@recoverflow/shared';
 import { getStripe } from './stripe';
 import { planFor, stripePriceIdFor } from './plans';
 
 export interface CheckoutResult {
   url: string;
 }
+
+/**
+ * Statuses that mean the merchant already has a live subscription. Starting a
+ * fresh Checkout while in one of these would create a SECOND Stripe subscription
+ * (double billing); plan changes for these merchants go through the billing
+ * portal, not checkout. INCOMPLETE (never paid) and CANCELED (ended) may re-check out.
+ */
+const ACTIVE_SUBSCRIPTION_STATUSES: BillingStatus[] = ['ACTIVE', 'TRIALING', 'PAST_DUE'];
 
 /**
  * Creates a Stripe Checkout Session for a merchant subscribing to a self-serve
@@ -46,6 +54,15 @@ export async function createCheckoutSession(
     include: { billingSubscription: true },
   });
 
+  // One active subscription per merchant: refuse a new checkout if one is live.
+  const existing = merchant.billingSubscription;
+  if (existing && ACTIVE_SUBSCRIPTION_STATUSES.includes(existing.status)) {
+    throw new ConflictError(
+      'You already have an active subscription. Manage your plan from the billing portal.',
+      { code: 'SUBSCRIPTION_EXISTS' },
+    );
+  }
+
   const stripe: StripeLike = stripeClient ?? getStripe();
 
   // Ensure a Stripe Customer exists; reuse the stored id if we have one.
@@ -72,8 +89,8 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     client_reference_id: merchantId,
     metadata: { merchantId, tier },
-    success_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing?status=success`,
-    cancel_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing?status=cancelled`,
+    success_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing/success`,
+    cancel_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing`,
   });
 
   if (!session.url) {

@@ -2,9 +2,19 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@recoverflow/db';
 import { getCurrentSession } from '@/lib/auth/current';
 import { PLANS, PLAN_ORDER, formatPrice } from '@/lib/billing/plans';
+import { billingView } from '@/lib/billing/summary';
 import { SubscribeButton } from './subscribe-button';
+import { ManageBillingButton } from './manage-billing-button';
 
 export const dynamic = 'force-dynamic';
+
+/** Tailwind classes for the status badge, keyed by the coarse billing state. */
+const STATE_BADGE: Record<string, string> = {
+  active: 'bg-green-50 text-green-700 ring-green-600/20',
+  past_due: 'bg-amber-50 text-amber-800 ring-amber-600/20',
+  canceled: 'bg-gray-100 text-gray-600 ring-gray-500/20',
+  none: 'bg-gray-100 text-gray-600 ring-gray-500/20',
+};
 
 export default async function BillingPage() {
   const current = await getCurrentSession();
@@ -13,27 +23,67 @@ export default async function BillingPage() {
   }
   const billing = await prisma.billingSubscription.findUnique({
     where: { merchantId: current.user.merchant.id },
-    select: { plan: true, status: true },
+    select: {
+      plan: true,
+      status: true,
+      stripeCustomerId: true,
+      currentPeriodEnd: true,
+      cancelAtPeriodEnd: true,
+    },
   });
-  const currentPlan = billing?.plan ?? null;
-  const currentStatus = billing?.status ?? null;
+  const view = billingView(billing);
+  // The plan grid highlights the active plan only while the subscription is live.
+  const activePlan = view.state === 'active' ? view.plan : null;
 
   return (
     <div className="flex flex-col gap-8">
       <header>
         <h1 className="text-xl font-semibold tracking-tight text-gray-900">Billing</h1>
         <p className="mt-1 text-sm text-gray-500">Choose the plan that fits your volume.</p>
-        {currentPlan && currentStatus === 'ACTIVE' ? (
-          <p className="mt-2 text-sm text-gray-900">
-            Current plan: <span className="font-medium">{PLANS[currentPlan].name}</span>
-          </p>
-        ) : null}
       </header>
+
+      {view.state === 'none' ? (
+        <section className="rounded-lg border border-gray-200 p-5">
+          <p className="text-sm text-gray-600">
+            You don&apos;t have an active subscription. Choose a plan below to get started.
+          </p>
+        </section>
+      ) : (
+        <section className="flex flex-col gap-4 rounded-lg border border-gray-200 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-gray-900">
+                {view.plan ? PLANS[view.plan].name : 'Subscription'}
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${STATE_BADGE[view.state]}`}
+              >
+                {view.statusLabel}
+              </span>
+            </div>
+            {view.renewalLabel ? (
+              <p className="text-xs text-gray-500">{view.renewalLabel}</p>
+            ) : null}
+            {view.state === 'past_due' ? (
+              <p className="text-xs text-amber-700">
+                Your last payment failed. Update your payment method to keep your subscription
+                active.
+              </p>
+            ) : null}
+            {view.state === 'canceled' ? (
+              <p className="text-xs text-gray-500">
+                Your subscription has been canceled. Re-subscribe below at any time.
+              </p>
+            ) : null}
+          </div>
+          {view.canManageBilling ? <ManageBillingButton /> : null}
+        </section>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
         {PLAN_ORDER.map((tier) => {
           const plan = PLANS[tier];
-          const isCurrent = currentPlan === tier && currentStatus === 'ACTIVE';
+          const isCurrent = activePlan === tier;
           return (
             <div key={tier} className="flex flex-col rounded-lg border border-gray-200 p-5">
               <h2 className="text-sm font-semibold text-gray-900">{plan.name}</h2>

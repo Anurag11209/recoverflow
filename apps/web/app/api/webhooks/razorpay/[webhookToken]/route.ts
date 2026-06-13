@@ -5,6 +5,7 @@ import { withErrorHandling } from '@/lib/api';
 import { assertWithinRateLimit, RATE_LIMITS } from '@/lib/rate-limit/guard';
 import { processWebhook } from '@/lib/razorpay/service';
 import { decryptSecret } from '@/lib/crypto/secret-cipher';
+import { checkPlanLimit } from '@/lib/billing/plan-limits';
 
 // Webhooks must never be cached or statically optimized, and must read the raw
 // body (request.text()) — re-serializing via .json() would change the bytes and
@@ -62,6 +63,27 @@ export const POST = withErrorHandling(async (request: Request, ctx: Ctx) => {
         } catch {
           // Body already verified+parsed by processWebhook; a parse failure
           // here is impossible in practice and must not fail the webhook.
+        }
+      }
+      // Plan enforcement (M4 Step 7): a failed payment beyond the merchant's
+      // monthly cap is acked but NOT enqueued for recovery — the cap limits how
+      // many failed payments we recover. We still store the PaymentEvent above
+      // (audit); we just decline to open a RecoveryCase. Other event types are
+      // never metered. Return 200 so Razorpay does not retry.
+      if (result.eventType === 'payment.failed') {
+        const limit = await checkPlanLimit(merchant.id);
+        if (!limit.allowed) {
+          logger.warn(
+            {
+              event: 'plan_limit_exceeded',
+              merchantId: merchant.id,
+              plan: limit.plan,
+              limit: limit.limit,
+              used: limit.used,
+            },
+            'failed payment exceeds monthly plan limit; recovery skipped',
+          );
+          return NextResponse.json({ success: true });
         }
       }
       await prisma.eventProcessing.create({

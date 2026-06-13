@@ -14,6 +14,7 @@ vi.mock('./plans', async (importOriginal) => {
 });
 
 async function clean() {
+  await prisma.webhookReceipt.deleteMany();
   await prisma.billingSubscription.deleteMany();
   await prisma.merchant.deleteMany();
 }
@@ -31,10 +32,15 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+const PERIOD_START = 1890000000;
+const PERIOD_END = 1893456000;
+
 // Minimal fake events — only the fields the handlers read. Cast through unknown
 // since we deliberately omit the rest of Stripe's large object shapes.
-function checkoutCompleted(over: Record<string, unknown> = {}): Stripe.Event {
+function checkoutCompleted(over: Record<string, unknown> = {}, id = 'evt_cs_1'): Stripe.Event {
   return {
+    id,
+    created: PERIOD_START,
     type: 'checkout.session.completed',
     data: {
       object: {
@@ -55,8 +61,11 @@ function subscriptionEvent(
     | 'customer.subscription.updated'
     | 'customer.subscription.deleted',
   over: Record<string, unknown> = {},
+  id = 'evt_sub_1',
 ): Stripe.Event {
   return {
+    id,
+    created: PERIOD_END,
     type,
     data: {
       object: {
@@ -64,11 +73,38 @@ function subscriptionEvent(
         customer: 'cus_123',
         status: 'active',
         cancel_at_period_end: false,
-        items: { data: [{ price: { id: 'price_growth' }, current_period_end: 1893456000 }] },
+        items: {
+          data: [
+            {
+              price: { id: 'price_growth' },
+              current_period_start: PERIOD_START,
+              current_period_end: PERIOD_END,
+            },
+          ],
+        },
         ...over,
       },
     },
   } as unknown as Stripe.Event;
+}
+
+function invoiceEvent(
+  type: 'invoice.paid' | 'invoice.payment_failed',
+  over: Record<string, unknown> = {},
+  id = 'evt_inv_1',
+): Stripe.Event {
+  return {
+    id,
+    created: PERIOD_END,
+    type,
+    data: { object: { id: 'in_123', customer: 'cus_123', ...over } },
+  } as unknown as Stripe.Event;
+}
+
+async function seedSubscription(data: Record<string, unknown> = {}) {
+  await prisma.billingSubscription.create({
+    data: { merchantId, plan: 'STARTER', stripeCustomerId: 'cus_123', ...data },
+  });
 }
 
 describe('mapStripeStatus', () => {
@@ -84,12 +120,10 @@ describe('mapStripeStatus', () => {
 
 describe('applyStripeEvent (integration)', () => {
   it('records subscription id + plan on checkout.session.completed', async () => {
-    await prisma.billingSubscription.create({
-      data: { merchantId, plan: 'STARTER', stripeCustomerId: 'cus_123' },
-    });
+    await seedSubscription();
 
     const res = await applyStripeEvent(checkoutCompleted());
-    expect(res.handled).toBe(true);
+    expect(res).toEqual({ handled: true, duplicate: false });
 
     const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
     expect(row?.stripeSubscriptionId).toBe('sub_123');
@@ -103,26 +137,23 @@ describe('applyStripeEvent (integration)', () => {
     expect(res.handled).toBe(false);
   });
 
-  it('activates the subscription on customer.subscription.created', async () => {
-    await prisma.billingSubscription.create({
-      data: { merchantId, plan: 'STARTER', stripeCustomerId: 'cus_123' },
-    });
+  it('activates the subscription and syncs the period window on subscription.created', async () => {
+    await seedSubscription();
 
     const res = await applyStripeEvent(subscriptionEvent('customer.subscription.created'));
-    expect(res.handled).toBe(true);
+    expect(res).toEqual({ handled: true, duplicate: false });
 
     const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
     expect(row?.status).toBe('ACTIVE');
     expect(row?.plan).toBe('GROWTH');
     expect(row?.stripeSubscriptionId).toBe('sub_123');
-    expect(row?.currentPeriodEnd?.getTime()).toBe(1893456000 * 1000);
+    expect(row?.currentPeriodStart?.getTime()).toBe(PERIOD_START * 1000);
+    expect(row?.currentPeriodEnd?.getTime()).toBe(PERIOD_END * 1000);
     expect(row?.cancelAtPeriodEnd).toBe(false);
   });
 
   it('marks the subscription CANCELED on deletion', async () => {
-    await prisma.billingSubscription.create({
-      data: { merchantId, plan: 'GROWTH', stripeCustomerId: 'cus_123', status: 'ACTIVE' },
-    });
+    await seedSubscription({ plan: 'GROWTH', status: 'ACTIVE' });
 
     await applyStripeEvent(
       subscriptionEvent('customer.subscription.deleted', { status: 'canceled' }),
@@ -130,6 +161,59 @@ describe('applyStripeEvent (integration)', () => {
 
     const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
     expect(row?.status).toBe('CANCELED');
+  });
+
+  it('marks ACTIVE on invoice.paid (recovers from past_due)', async () => {
+    await seedSubscription({ plan: 'GROWTH', status: 'PAST_DUE' });
+
+    const res = await applyStripeEvent(invoiceEvent('invoice.paid'));
+    expect(res.handled).toBe(true);
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('ACTIVE');
+  });
+
+  it('marks PAST_DUE on invoice.payment_failed', async () => {
+    await seedSubscription({ plan: 'GROWTH', status: 'ACTIVE' });
+
+    const res = await applyStripeEvent(invoiceEvent('invoice.payment_failed'));
+    expect(res.handled).toBe(true);
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('PAST_DUE');
+  });
+
+  it('persists a WebhookReceipt for an event', async () => {
+    await seedSubscription();
+    await applyStripeEvent(subscriptionEvent('customer.subscription.created', {}, 'evt_persist'));
+
+    const receipt = await prisma.webhookReceipt.findUnique({
+      where: { provider_eventId: { provider: 'stripe', eventId: 'evt_persist' } },
+    });
+    expect(receipt?.eventType).toBe('customer.subscription.created');
+  });
+
+  it('ignores a duplicate delivery (same event id) without re-processing', async () => {
+    await seedSubscription();
+    const event = subscriptionEvent('customer.subscription.updated', {}, 'evt_dup');
+
+    const first = await applyStripeEvent(event);
+    expect(first).toEqual({ handled: true, duplicate: false });
+
+    // Redelivery: the row is mutated to CANCELED first to prove the second call
+    // does NOT re-apply the (ACTIVE) event over our change.
+    await prisma.billingSubscription.update({
+      where: { merchantId },
+      data: { status: 'CANCELED' },
+    });
+
+    const second = await applyStripeEvent(event);
+    expect(second).toEqual({ handled: false, duplicate: true });
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('CANCELED'); // unchanged by the duplicate
+    const count = await prisma.webhookReceipt.count({ where: { eventId: 'evt_dup' } });
+    expect(count).toBe(1);
   });
 
   it('acks (does not throw) when no row matches the customer', async () => {
@@ -141,9 +225,11 @@ describe('applyStripeEvent (integration)', () => {
 
   it('ignores unhandled event types', async () => {
     const res = await applyStripeEvent({
-      type: 'invoice.paid',
+      id: 'evt_unhandled',
+      created: PERIOD_END,
+      type: 'customer.created',
       data: { object: {} },
     } as unknown as Stripe.Event);
-    expect(res.handled).toBe(false);
+    expect(res).toEqual({ handled: false, duplicate: false });
   });
 });

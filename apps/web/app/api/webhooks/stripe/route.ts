@@ -31,6 +31,16 @@ export const POST = withErrorHandling(async (request: Request) => {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  await applyStripeEvent(event);
+  const { handled, duplicate } = await applyStripeEvent(event);
+  logger.info(
+    {
+      event: 'stripe_webhook_processed',
+      stripeEventId: event.id,
+      type: event.type,
+      handled,
+      duplicate,
+    },
+    'processed Stripe webhook',
+  );
   return NextResponse.json({ received: true });
 });

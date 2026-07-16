@@ -5,6 +5,8 @@ const VALID = {
   NODE_ENV: 'test',
   DATABASE_URL: 'postgresql://user:pass@localhost:5432/recoverflow',
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
+  // Valid 32-byte (AES-256) base64 key; required at boot.
+  APP_ENCRYPTION_KEY: 'cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=',
 } satisfies NodeJS.ProcessEnv;
 
 describe('loadEnv', () => {
@@ -53,6 +55,20 @@ describe('loadEnv', () => {
 
   it('throws when a URL is malformed', () => {
     expect(() => loadEnv({ ...VALID, NEXT_PUBLIC_APP_URL: 'not-a-url' })).toThrow();
+  });
+
+  it('throws when APP_ENCRYPTION_KEY is missing (boot fails fast without the key)', () => {
+    const rest = Object.fromEntries(
+      Object.entries(VALID).filter(([key]) => key !== 'APP_ENCRYPTION_KEY'),
+    );
+    expect(() => loadEnv(rest)).toThrow(/APP_ENCRYPTION_KEY/);
+  });
+
+  it('throws when APP_ENCRYPTION_KEY does not decode to 32 bytes', () => {
+    // 'dG9vLXNob3J0' is base64 for 'too-short' (9 bytes), not 32.
+    expect(() => loadEnv({ ...VALID, APP_ENCRYPTION_KEY: 'dG9vLXNob3J0' })).toThrow(
+      /APP_ENCRYPTION_KEY/,
+    );
   });
 
   it('bypasses validation when SKIP_ENV_VALIDATION is set', () => {

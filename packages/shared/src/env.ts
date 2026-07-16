@@ -21,10 +21,20 @@ const envSchema = z.object({
   // it need not be set in every environment (avoids env blast radius).
   APP_BASE_URL: z.string().url('APP_BASE_URL must be a valid URL').default('http://localhost:3000'),
   MESSAGING_PROVIDER: z.enum(['console']).default('console'),
-  // Optional at load time so unit/dev environments that never encrypt can
-  // run without it. The secret-cipher enforces presence + 32-byte length at
-  // call time (the only place a key is actually required).
-  APP_ENCRYPTION_KEY: z.string().optional(),
+  // Required at boot: the app encrypts per-merchant Razorpay webhook secrets at
+  // rest (AES-256-GCM), so a valid key must be present before any request is
+  // served. Validated here (presence + 32-byte length) so a missing or malformed
+  // key fails fast at boot — via `check:env` and the instrumentation boot hook —
+  // rather than lazily on the first webhook that needs to decrypt.
+  APP_ENCRYPTION_KEY: z
+    .string({
+      required_error:
+        'APP_ENCRYPTION_KEY is required (AES-256); generate with: openssl rand -base64 32',
+    })
+    .refine((v) => Buffer.from(v, 'base64').length === 32, {
+      message:
+        'APP_ENCRYPTION_KEY must decode to 32 bytes (AES-256); generate with: openssl rand -base64 32',
+    }),
   // Stripe billing (M4). All optional at load time so dev/test/CI environments
   // that never call Stripe still load; presence is enforced where actually used
   // (checkout, webhook verification). Populated with test-mode values in M4-2/3.

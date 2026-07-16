@@ -8,28 +8,21 @@ import { getEnv } from '@recoverflow/shared';
  * Stored format is versioned and self-describing:
  *   v1:<iv>:<authTag>:<ciphertext>      (each part base64)
  *
- * Values without the "v1:" prefix are treated as legacy plaintext and returned
- * unchanged by decryptSecret — so encryption can roll out transparently over
- * existing rows, and a migration can re-encrypt them at leisure.
+ * decryptSecret accepts ONLY this versioned v1 format; there is no plaintext
+ * fallthrough. A value without the "v1:" prefix is rejected. (The one-off
+ * migration in scripts/encrypt-webhook-secrets.ts has already re-encrypted any
+ * legacy plaintext rows; isEncrypted() guards that script's idempotency.)
  */
 
 const VERSION = 'v1';
 const ALGORITHM = 'aes-256-gcm';
 const IV_BYTES = 12; // 96-bit nonce, standard for GCM
-const KEY_BYTES = 32; // AES-256
 
 function key(): Buffer {
-  const raw = getEnv().APP_ENCRYPTION_KEY;
-  if (!raw) {
-    throw new Error('APP_ENCRYPTION_KEY is not set; cannot encrypt/decrypt secrets');
-  }
-  const buf = Buffer.from(raw, 'base64');
-  if (buf.length !== KEY_BYTES) {
-    throw new Error(
-      `APP_ENCRYPTION_KEY must decode to ${KEY_BYTES} bytes (got ${buf.length}); generate with: openssl rand -base64 32`,
-    );
-  }
-  return buf;
+  // Presence and 32-byte length are enforced at boot by the env schema
+  // (APP_ENCRYPTION_KEY in @recoverflow/shared), so by the time any secret is
+  // encrypted or decrypted the key is guaranteed valid — no lazy re-check here.
+  return Buffer.from(getEnv().APP_ENCRYPTION_KEY, 'base64');
 }
 
 /** Encrypt plaintext into the versioned v1 format. */
@@ -47,12 +40,14 @@ export function encryptSecret(plaintext: string): string {
 }
 
 /**
- * Decrypt a stored value. If it carries the v1 prefix, authenticate + decrypt;
- * otherwise treat it as legacy plaintext and return it unchanged.
+ * Decrypt a stored value. Accepts only the versioned v1 format; a value without
+ * the v1 prefix (e.g. legacy plaintext) is rejected rather than passed through.
  */
 export function decryptSecret(stored: string): string {
   if (!stored.startsWith(`${VERSION}:`)) {
-    return stored; // legacy plaintext
+    throw new Error(
+      'Refusing to decrypt a non-v1 secret: expected versioned v1:iv:authTag:ciphertext format (plaintext fallthrough removed)',
+    );
   }
   const parts = stored.split(':');
   const [, ivB64, tagB64, dataB64] = parts;

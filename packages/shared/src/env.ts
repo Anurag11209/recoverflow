@@ -56,7 +56,10 @@ const baseEnvSchema = z.object({
     .string({
       required_error: 'INTERNAL_API_TOKEN is required; generate with: openssl rand -hex 32',
     })
-    .min(16, 'INTERNAL_API_TOKEN must be at least 16 characters; generate with: openssl rand -hex 32'),
+    .min(
+      16,
+      'INTERNAL_API_TOKEN must be at least 16 characters; generate with: openssl rand -hex 32',
+    ),
   // Stripe billing (M4). All optional at load time so dev/test/CI environments
   // that never call Stripe still load; presence is enforced where actually used
   // (checkout, webhook verification). Populated with test-mode values in M4-2/3.

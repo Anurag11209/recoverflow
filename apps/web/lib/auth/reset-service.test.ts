@@ -81,7 +81,11 @@ describe('requestPasswordReset (enumeration-safe)', () => {
   });
 
   it('returns identically (void) for known and unknown emails', async () => {
-    const ok: EmailClient = { async sendEmail() { return { id: 'e' }; } };
+    const ok: EmailClient = {
+      async sendEmail() {
+        return { id: 'e' };
+      },
+    };
     const known = await requestPasswordReset(
       {
         findUserByEmail: async () => ({ id: 'u', email: 'k@example.com' }),

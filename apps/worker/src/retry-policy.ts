@@ -11,9 +11,7 @@ export interface RetryPolicy {
   backoffMaxMs: number;
 }
 
-export type FailureDecision =
-  | { status: 'DEAD' }
-  | { status: 'FAILED'; nextAttemptAt: Date };
+export type FailureDecision = { status: 'DEAD' } | { status: 'FAILED'; nextAttemptAt: Date };
 
 /**
  * Backoff before the next retry given how many attempts have already been made.
@@ -31,11 +29,7 @@ export function backoffMs(attempts: number, policy: RetryPolicy): number {
  * `maxAttempts` the row is DEAD (terminal, no more retries); otherwise it is
  * retryable and becomes eligible again after the backoff window.
  */
-export function decideOnFailure(
-  attempts: number,
-  policy: RetryPolicy,
-  now: Date,
-): FailureDecision {
+export function decideOnFailure(attempts: number, policy: RetryPolicy, now: Date): FailureDecision {
   if (attempts >= policy.maxAttempts) return { status: 'DEAD' };
   return { status: 'FAILED', nextAttemptAt: new Date(now.getTime() + backoffMs(attempts, policy)) };
 }

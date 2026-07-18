@@ -39,11 +39,7 @@ export {
   nextAttemptSchedule,
   runDueAttempt,
 } from './recovery/attempt-service';
-export type {
-  RunDueAttemptDeps,
-  LadderOutcome,
-  HaltReason,
-} from './recovery/attempt-service';
+export type { RunDueAttemptDeps, LadderOutcome, HaltReason } from './recovery/attempt-service';
 export type {
   RecoveryStore,
   RecoveryStatus,

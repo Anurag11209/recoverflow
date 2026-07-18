@@ -123,11 +123,18 @@ const OPEN_CASE: RecoveryCaseRecord = {
   failureCategory: 'INSUFFICIENT_FUNDS',
 };
 
-function capturedCtx(openCase: RecoveryCaseRecord | null, logger: { info: unknown; error: unknown }) {
+function capturedCtx(
+  openCase: RecoveryCaseRecord | null,
+  logger: { info: unknown; error: unknown },
+) {
   const markRecovered = vi.fn(async () => {});
   const findOpenCaseByCustomer = vi.fn(async () => openCase);
   const recoveryStore = { findOpenCaseByCustomer, markRecovered } as unknown as RecoveryStore;
-  return { ctx: { logger, recoveryStore, ...msgCtx(), ...tokenCtx() }, markRecovered, findOpenCaseByCustomer };
+  return {
+    ctx: { logger, recoveryStore, ...msgCtx(), ...tokenCtx() },
+    markRecovered,
+    findOpenCaseByCustomer,
+  };
 }
 
 describe('routeEvent payment.captured (organic recovery)', () => {

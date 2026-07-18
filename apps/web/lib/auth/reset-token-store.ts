@@ -24,7 +24,10 @@ export function createResetTokenStore(): ResetTokenStore {
     },
 
     async findByHash(tokenHash): Promise<ResetTokenRecord | null> {
-      const r = await prisma.passwordResetToken.findUnique({ where: { tokenHash }, select: SELECT });
+      const r = await prisma.passwordResetToken.findUnique({
+        where: { tokenHash },
+        select: SELECT,
+      });
       return r ?? null;
     },
 

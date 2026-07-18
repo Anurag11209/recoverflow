@@ -59,7 +59,10 @@ describe('reset-token', () => {
 
   it('rejects an expired token', async () => {
     const store = fakeStore();
-    const { signedToken } = await issueResetToken({ store, clock: clockAt(T0), ttlMinutes: 30 }, 'user_1');
+    const { signedToken } = await issueResetToken(
+      { store, clock: clockAt(T0), ttlMinutes: 30 },
+      'user_1',
+    );
     const later = new Date(T0.getTime() + 31 * 60_000);
 
     const consumed = await consumeResetToken({ store, clock: clockAt(later) }, signedToken);

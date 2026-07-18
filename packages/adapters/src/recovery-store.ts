@@ -128,7 +128,12 @@ export function createRecoveryStore(): RecoveryStore {
     ): Promise<void> {
       await prisma.recoveryCase.update({
         where: { id: caseId },
-        data: { status: 'RECOVERED', recoveredAmount, recoveredAt, recoveryAttribution: attribution },
+        data: {
+          status: 'RECOVERED',
+          recoveredAmount,
+          recoveredAt,
+          recoveryAttribution: attribution,
+        },
       });
     },
 

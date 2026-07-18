@@ -35,14 +35,14 @@ apps (`apps/web`, `apps/worker`) are the composition roots. No package may impor
 a package that (directly or transitively) imports it; the internal import graph
 must remain acyclic.
 
-| Package                        | May import (internal)                                       |
-| ------------------------------ | ---------------------------------------------------------- |
-| `@recoverflow/shared`          | nothing internal                                           |
-| `@recoverflow/db`              | `shared`                                                   |
-| `@recoverflow/recovery-engine` | `shared`                                                   |
-| `@recoverflow/adapters`        | `shared`, `db`, `recovery-engine`                          |
-| `apps/web`                     | `shared`, `db`, `recovery-engine`, `adapters`              |
-| `apps/worker`                  | `shared`, `db`, `recovery-engine`, `adapters`              |
+| Package                        | May import (internal)                         |
+| ------------------------------ | --------------------------------------------- |
+| `@recoverflow/shared`          | nothing internal                              |
+| `@recoverflow/db`              | `shared`                                      |
+| `@recoverflow/recovery-engine` | `shared`                                      |
+| `@recoverflow/adapters`        | `shared`, `db`, `recovery-engine`             |
+| `apps/web`                     | `shared`, `db`, `recovery-engine`, `adapters` |
+| `apps/worker`                  | `shared`, `db`, `recovery-engine`, `adapters` |
 
 (`@recoverflow/adapters` sits above `db` and `recovery-engine`: it implements the
 engine's ports using the Prisma client. Neither `db` nor `recovery-engine` imports

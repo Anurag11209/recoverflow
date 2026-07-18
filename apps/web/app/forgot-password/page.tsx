@@ -29,8 +29,8 @@ export default function ForgotPasswordPage() {
       {submitted ? (
         <div className="space-y-4">
           <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-800" role="status">
-            If an account exists for that email, we’ve sent a link to reset your password. It expires
-            in 30 minutes.
+            If an account exists for that email, we’ve sent a link to reset your password. It
+            expires in 30 minutes.
           </p>
           <p className="text-sm text-gray-500">
             <Link href="/login" className="font-medium text-gray-900 underline underline-offset-4">

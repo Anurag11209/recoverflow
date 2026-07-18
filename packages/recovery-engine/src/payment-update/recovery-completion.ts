@@ -71,7 +71,12 @@ export async function completeRecovery(
 
   const recoveredAmount = input.amount ?? 0;
   const recoveredAt = deps.now();
-  await deps.recoveryStore.markRecovered(input.recoveryCaseId, recoveredAmount, recoveredAt, 'LINK');
+  await deps.recoveryStore.markRecovered(
+    input.recoveryCaseId,
+    recoveredAmount,
+    recoveredAt,
+    'LINK',
+  );
 
   deps.logger.info(
     {

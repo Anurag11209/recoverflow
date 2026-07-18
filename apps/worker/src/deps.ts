@@ -13,7 +13,10 @@ import type {
   TokenStore,
 } from '@recoverflow/recovery-engine';
 import type { WorkerConfig } from './config';
-import { createWorkerProcessingStore, type WorkerProcessingStore } from './adapters/processing-store';
+import {
+  createWorkerProcessingStore,
+  type WorkerProcessingStore,
+} from './adapters/processing-store';
 
 /**
  * Everything the worker injects into processPaymentEvent (minus the per-event

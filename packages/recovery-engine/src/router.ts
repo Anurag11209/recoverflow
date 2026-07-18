@@ -114,7 +114,11 @@ async function handlePaymentCaptured(event: LoadedEvent, ctx: HandlerContext): P
 
   if (!identity.customerEmail && !identity.customerPhone) {
     logger.info(
-      { event: 'payment_captured_no_identity', paymentEventId: event.id, merchantId: event.merchantId },
+      {
+        event: 'payment_captured_no_identity',
+        paymentEventId: event.id,
+        merchantId: event.merchantId,
+      },
       'payment.captured: no customer identity to match; noop',
     );
     return;

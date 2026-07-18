@@ -237,7 +237,12 @@ describe('runDueAttempt', () => {
     const { store, state } = makeLadderStore();
     const { deps } = makeDeps(store);
     const outcome = await runDueAttempt(deps, makeDue({ attemptNumber: 3, attemptId: 'att_3' }));
-    expect(outcome).toMatchObject({ status: 'executed', attemptNumber: 3, scheduledNext: null, caseFailed: true });
+    expect(outcome).toMatchObject({
+      status: 'executed',
+      attemptNumber: 3,
+      scheduledNext: null,
+      caseFailed: true,
+    });
     expect(state.created).toHaveLength(0);
     expect(state.caseStatus.get('case_1')).toBe('FAILED');
   });
@@ -272,7 +277,10 @@ describe('runDueAttempt', () => {
     const { store } = makeLadderStore();
     const { deps } = makeDeps(store);
     expect(
-      await runDueAttempt(deps, makeDue({ hasSubscription: true, subscriptionStatus: 'cancelled' })),
+      await runDueAttempt(
+        deps,
+        makeDue({ hasSubscription: true, subscriptionStatus: 'cancelled' }),
+      ),
     ).toEqual({ status: 'halted', reason: 'subscription_inactive' });
   });
 

@@ -18,9 +18,7 @@ export function createEmailClient(): EmailClient {
   const env = getEnv();
   if (env.MESSAGING_PROVIDER === 'resend') {
     if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
-      throw new Error(
-        'resend email provider selected but RESEND_API_KEY / EMAIL_FROM are not set',
-      );
+      throw new Error('resend email provider selected but RESEND_API_KEY / EMAIL_FROM are not set');
     }
     return createResendEmailClient({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM });
   }

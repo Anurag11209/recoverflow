@@ -83,7 +83,10 @@ export function createWorker(opts: { services: WorkerServices; config: WorkerCon
           );
           const durationMs = Date.now() - startedAt;
           if (outcome.status === 'SKIPPED') {
-            childLog.info({ event: 'skipped', reason: outcome.reason, durationMs }, 'event skipped');
+            childLog.info(
+              { event: 'skipped', reason: outcome.reason, durationMs },
+              'event skipped',
+            );
           } else if (outcome.status === 'FAILED') {
             childLog.error(
               { event: 'failed', eventType: outcome.eventType, err: outcome.error, durationMs },
@@ -241,7 +244,10 @@ export function createWorker(opts: { services: WorkerServices; config: WorkerCon
       loopDone = loop();
     },
     async stop(): Promise<void> {
-      log.info({ event: 'worker_stopping', inFlight: inFlight.size }, 'shutdown: stop claiming, drain in-flight');
+      log.info(
+        { event: 'worker_stopping', inFlight: inFlight.size },
+        'shutdown: stop claiming, drain in-flight',
+      );
       shuttingDown = true;
       if (wakeSleep) wakeSleep(); // interrupt the poll sleep so the loop exits promptly
       if (loopDone) await loopDone;

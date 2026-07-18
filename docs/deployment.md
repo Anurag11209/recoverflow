@@ -46,8 +46,8 @@ On the web service → Variables, set:
 | `NEXT_PUBLIC_APP_URL` | your public origin, e.g. `https://app.recoverflow.com`                 |
 | `APP_BASE_URL`        | same public origin (outbound WhatsApp links)                           |
 | `MESSAGING_PROVIDER`  | `console` (logs) or `resend` (real email). See Email below.            |
-| `RESEND_API_KEY`      | Resend API key (`re_...`). REQUIRED when `MESSAGING_PROVIDER=resend`.   |
-| `EMAIL_FROM`          | Verified From identity, e.g. `RecoverFlow <no-reply@recoverflow.com>`.  |
+| `RESEND_API_KEY`      | Resend API key (`re_...`). REQUIRED when `MESSAGING_PROVIDER=resend`.  |
+| `EMAIL_FROM`          | Verified From identity, e.g. `RecoverFlow <no-reply@recoverflow.com>`. |
 | `LOG_LEVEL`           | `info`                                                                 |
 | `APP_ENCRYPTION_KEY`  | a 32-byte base64 key (`openssl rand -base64 32`) — used by Milestone 2 |
 | `INTERNAL_API_TOKEN`  | shared secret for `/api/internal/*` (`openssl rand -hex 32`)           |
@@ -116,10 +116,10 @@ touch DNS, and no code change is involved. Do this once per sending domain.
 2. **SPF** — authorizes Resend's servers to send for your domain. Resend provides
    a TXT (and a matching MX for the bounce subdomain). Typical shape:
 
-   | Type | Name (host)      | Value                                  |
-   | ---- | ---------------- | -------------------------------------- |
-   | TXT  | `send`           | `v=spf1 include:amazonses.com ~all`    |
-   | MX   | `send`           | `feedback-smtp.<region>.amazonses.com` (priority 10) |
+   | Type | Name (host) | Value                                                |
+   | ---- | ----------- | ---------------------------------------------------- |
+   | TXT  | `send`      | `v=spf1 include:amazonses.com ~all`                  |
+   | MX   | `send`      | `feedback-smtp.<region>.amazonses.com` (priority 10) |
 
    If the root domain already has an SPF TXT record, **merge** the `include:`
    into the existing record — a domain must have exactly one SPF record.
@@ -127,16 +127,16 @@ touch DNS, and no code change is involved. Do this once per sending domain.
 3. **DKIM** — lets receivers verify the message was signed by your domain and not
    altered. Resend gives a CNAME (or TXT) with an account-specific selector:
 
-   | Type  | Name (host)                 | Value                          |
-   | ----- | --------------------------- | ------------------------------ |
-   | CNAME | `resend._domainkey`         | `<selector>.dkim.amazonses.com` |
+   | Type  | Name (host)         | Value                           |
+   | ----- | ------------------- | ------------------------------- |
+   | CNAME | `resend._domainkey` | `<selector>.dkim.amazonses.com` |
 
 4. **DMARC** — tells receivers what to do with mail that fails SPF/DKIM and gives
    you reporting. Start in monitor mode, then tighten to `quarantine`/`reject`
    once SPF+DKIM are verified and aligned:
 
-   | Type | Name (host) | Value                                             |
-   | ---- | ----------- | ------------------------------------------------- |
+   | Type | Name (host) | Value                                                |
+   | ---- | ----------- | ---------------------------------------------------- |
    | TXT  | `_dmarc`    | `v=DMARC1; p=none; rua=mailto:dmarc@recoverflow.com` |
 
 5. **Verify** — back in Resend → Domains, wait for all records to show

@@ -2,7 +2,7 @@ import type { Logger } from './logger';
 import type { LoadedEvent } from './types';
 import type { RecoveryStore } from './recovery/types';
 import type { MessageStore, MessagingProvider } from './messaging/message-types';
-import { classifyFailure } from './recovery/classifier';
+import { classifyFailure, extractPaymentIdentity } from './recovery/classifier';
 import { createRecoveryCase } from './recovery/case-service';
 import { scheduleFirstAttempt } from './recovery/attempt-service';
 import { sendRecoveryMessage } from './messaging/message-service';
@@ -91,6 +91,7 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
     merchantId: event.merchantId,
     recoveryAttemptId: attempt.id,
     recipientPhone: classified.customerPhone,
+    recipientEmail: classified.customerEmail,
     failureCategory: classified.category,
     amount: classified.amount,
     currency: classified.currency,
@@ -99,11 +100,50 @@ async function handlePaymentFailed(event: LoadedEvent, ctx: HandlerContext): Pro
   });
 }
 
-// Other handlers remain log-only.
+/**
+ * payment.captured: a successful payment. If it belongs to a customer with an
+ * open recovery case (matched by merchant + email/phone), the customer paid on
+ * their own — close the case RECOVERED, attributed ORGANIC. Only OPEN cases are
+ * touched, so a case is recovered at most once: this never double-counts with a
+ * link-based recovery (whichever path finds the case OPEN first wins; the other
+ * finds no open case and no-ops).
+ */
 async function handlePaymentCaptured(event: LoadedEvent, ctx: HandlerContext): Promise<void> {
-  ctx.logger.info(
-    { paymentEventId: event.id, eventType: event.eventType },
-    'handle payment.captured (noop)',
+  const { logger, recoveryStore, clock } = ctx;
+  const identity = extractPaymentIdentity(event.payload);
+
+  if (!identity.customerEmail && !identity.customerPhone) {
+    logger.info(
+      { event: 'payment_captured_no_identity', paymentEventId: event.id, merchantId: event.merchantId },
+      'payment.captured: no customer identity to match; noop',
+    );
+    return;
+  }
+
+  const openCase = await recoveryStore.findOpenCaseByCustomer(
+    event.merchantId,
+    identity.customerEmail,
+    identity.customerPhone,
+  );
+  if (!openCase) {
+    logger.info(
+      { event: 'no_matching_open_case', paymentEventId: event.id, merchantId: event.merchantId },
+      'payment.captured: no matching open recovery case; noop',
+    );
+    return;
+  }
+
+  const recoveredAmount = identity.amount ?? 0;
+  await recoveryStore.markRecovered(openCase.id, recoveredAmount, clock.now(), 'ORGANIC');
+  logger.info(
+    {
+      event: 'organic_recovery',
+      paymentEventId: event.id,
+      recoveryCaseId: openCase.id,
+      merchantId: event.merchantId,
+      recoveredAmount,
+    },
+    'recovery case closed as RECOVERED (organic)',
   );
 }
 async function handleSubscriptionCharged(event: LoadedEvent, ctx: HandlerContext): Promise<void> {

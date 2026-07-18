@@ -7,6 +7,8 @@ const VALID = {
   NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
   // Valid 32-byte (AES-256) base64 key; required at boot.
   APP_ENCRYPTION_KEY: 'cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=',
+  // Shared secret for internal API routes; required in every environment.
+  INTERNAL_API_TOKEN: 'test-internal-api-token-please-change',
 } satisfies NodeJS.ProcessEnv;
 
 describe('loadEnv', () => {
@@ -69,6 +71,17 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...VALID, APP_ENCRYPTION_KEY: 'dG9vLXNob3J0' })).toThrow(
       /APP_ENCRYPTION_KEY/,
     );
+  });
+
+  it('throws when INTERNAL_API_TOKEN is missing', () => {
+    const rest = Object.fromEntries(
+      Object.entries(VALID).filter(([key]) => key !== 'INTERNAL_API_TOKEN'),
+    );
+    expect(() => loadEnv(rest)).toThrow(/INTERNAL_API_TOKEN/);
+  });
+
+  it('throws when INTERNAL_API_TOKEN is too short', () => {
+    expect(() => loadEnv({ ...VALID, INTERNAL_API_TOKEN: 'short' })).toThrow(/INTERNAL_API_TOKEN/);
   });
 
   it('bypasses validation when SKIP_ENV_VALIDATION is set', () => {

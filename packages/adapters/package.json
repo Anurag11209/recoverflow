@@ -1,0 +1,22 @@
+{
+  "name": "@recoverflow/adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@recoverflow/db": "workspace:*",
+    "@recoverflow/recovery-engine": "workspace:*",
+    "@recoverflow/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

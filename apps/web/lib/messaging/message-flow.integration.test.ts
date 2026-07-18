@@ -2,11 +2,13 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@recoverflow/db';
 import { processPaymentEvent, type MessagingProvider } from '@recoverflow/recovery-engine';
 import { logger } from '@recoverflow/shared';
-import { createProcessingStore } from '../processing/store';
-import { createRecoveryStore } from '../recovery/store';
-import { createMessageStore } from './store';
-import { createTokenStore } from '../payment-update/store';
-import { createConsoleMessagingProvider } from './console-provider';
+import {
+  createProcessingStore,
+  createRecoveryStore,
+  createMessageStore,
+  createTokenStore,
+  createConsoleMessagingProvider,
+} from '@recoverflow/adapters';
 
 // FK-safe order: MessageLog -> RecoveryAttempt -> RecoveryCase (Restrict on
 // paymentEventId) -> EventProcessing/Idempotency -> PaymentEvent.

@@ -19,6 +19,7 @@ export interface CompleteRecoveryInput {
   merchantId: string | null;
   providerPaymentId: string | null;
   recipientPhone: string | null;
+  recipientEmail: string | null;
   amount: number | null;
   currency: string | null;
 }
@@ -70,7 +71,7 @@ export async function completeRecovery(
 
   const recoveredAmount = input.amount ?? 0;
   const recoveredAt = deps.now();
-  await deps.recoveryStore.markRecovered(input.recoveryCaseId, recoveredAmount, recoveredAt);
+  await deps.recoveryStore.markRecovered(input.recoveryCaseId, recoveredAmount, recoveredAt, 'LINK');
 
   deps.logger.info(
     {
@@ -96,6 +97,7 @@ export async function completeRecovery(
     messageType: 'PAYMENT_RECOVERED',
     template: 'PAYMENT_RECOVERED',
     recipientPhone: input.recipientPhone,
+    recipientEmail: input.recipientEmail,
     variables,
     providerName: deps.messagingProviderName,
   });

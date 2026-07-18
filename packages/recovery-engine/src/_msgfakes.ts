@@ -20,6 +20,7 @@ export function fakeMessageStore(): MessageStore {
         templateName: input.templateName,
         status: 'PENDING',
         recipientPhone: input.recipientPhone,
+        recipientEmail: input.recipientEmail,
         providerMessageId: null,
       };
       logs.set(rec.id, rec);

@@ -12,6 +12,7 @@ const SELECT = {
   templateName: true,
   status: true,
   recipientPhone: true,
+  recipientEmail: true,
   providerMessageId: true,
 } as const;
 
@@ -33,6 +34,7 @@ export function createMessageStore(): MessageStore {
           provider: input.provider,
           templateName: input.templateName,
           recipientPhone: input.recipientPhone,
+          recipientEmail: input.recipientEmail,
           payload: input.payload,
           status: 'PENDING',
         },

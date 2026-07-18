@@ -87,9 +87,27 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  sessions Session[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([merchantId])
+}
+
+// Single-use, time-limited password-reset tokens. Mirrors the PaymentUpdateToken
+// security model: the RAW token is shown to the user exactly once (in the emailed
+// link) and NEVER stored; only sha256(raw) is persisted as tokenHash. A token is
+// "active" iff usedAt IS NULL AND expiresAt > now. Single-use is enforced by an
+// atomic conditional update (set usedAt only if still null).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Session {
@@ -211,6 +229,13 @@ enum AttemptStatus {
   FAILED
 }
 
+// How a RecoveryCase was recovered: ORGANIC = customer paid unprompted
+// (payment.captured), LINK = via the payment-update flow. Null until recovered.
+enum RecoveryAttribution {
+  LINK
+  ORGANIC
+}
+
 model RecoveryCase {
   id                String         @id @default(cuid())
   merchantId        String?
@@ -232,6 +257,8 @@ model RecoveryCase {
   status            RecoveryStatus @default(OPEN)
   token             String         @unique @default(cuid())
   recoveredAmount   Decimal?
+  // How the case was recovered (null until RECOVERED). See RecoveryAttribution.
+  recoveryAttribution RecoveryAttribution?
   createdAt         DateTime       @default(now())
   recoveredAt       DateTime?
   updatedAt         DateTime       @updatedAt
@@ -294,6 +321,10 @@ model MessageLog {
   provider          String
   templateName      String
   recipientPhone    String?
+  // The email address a message was delivered to when the channel is email
+  // (Resend provider). Null for phone/WhatsApp-channel messages. One of
+  // recipientPhone / recipientEmail is set per message, matching the channel.
+  recipientEmail    String?
   status            MessageStatus    @default(PENDING)
   providerMessageId String?
   errorMessage      String?
@@ -327,6 +358,10 @@ enum ProcessingStatus {
   PROCESSING
   SUCCESS
   FAILED
+  // Worker terminal states (apps/worker). SUCCESS/FAILED remain for the web
+  // manual-trigger path; the worker uses DONE (success) and DEAD (exhausted retries).
+  DONE
+  DEAD
 }
 
 model EventProcessing {
@@ -338,10 +373,14 @@ model EventProcessing {
   lastError      String?
   startedAt      DateTime?
   completedAt    DateTime?
+  // When a FAILED row becomes eligible for retry again (exponential backoff set
+  // by the worker). Null = eligible immediately (e.g. PENDING).
+  nextAttemptAt  DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
   @@index([status])
+  @@index([status, nextAttemptAt])
 }
 
 model IdempotencyRecord {

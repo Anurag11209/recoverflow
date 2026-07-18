@@ -109,3 +109,29 @@ export function classifyFailure(payload: unknown): ClassifiedFailure {
     failureReason: e.error_description ?? e.error_reason ?? null,
   };
 }
+
+/** Customer/payment identity common to any Razorpay payment webhook. */
+export interface PaymentIdentity {
+  providerPaymentId: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  amount: number | null; // major units (paise -> major)
+  currency: string | null;
+}
+
+/**
+ * Extract the customer + amount identity from any payment webhook
+ * (payment.failed, payment.captured). Used by the captured handler to match a
+ * paying customer back to their open recovery case. Amounts converted to major
+ * units (Razorpay sends paise).
+ */
+export function extractPaymentIdentity(payload: unknown): PaymentIdentity {
+  const e = extractEntity(payload);
+  return {
+    providerPaymentId: e.id ?? null,
+    customerEmail: e.email ?? null,
+    customerPhone: e.contact ?? null,
+    amount: typeof e.amount === 'number' ? e.amount / 100 : null,
+    currency: e.currency ?? null,
+  };
+}

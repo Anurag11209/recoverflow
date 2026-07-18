@@ -4,21 +4,22 @@ import { processPaymentEvent } from '@recoverflow/recovery-engine';
 import { logger, getEnv } from '@recoverflow/shared';
 import { ValidationError } from '@recoverflow/shared';
 import { withErrorHandling } from '@/lib/api';
+import { assertInternalApiToken } from '@/lib/auth/internal-token';
 import { assertWithinPlanLimit, FAILED_PAYMENT_EVENT_TYPE } from '@/lib/billing/plan-limits';
-import { createProcessingStore } from '@/lib/processing/store';
-import { createRecoveryStore } from '@/lib/recovery/store';
-import { createMessageStore } from '@/lib/messaging/store';
-import { createConsoleMessagingProvider } from '@/lib/messaging/console-provider';
-import { createTokenStore } from '@/lib/payment-update/store';
+import {
+  createProcessingStore,
+  createRecoveryStore,
+  createMessageStore,
+  createMessagingProvider,
+  createTokenStore,
+} from '@recoverflow/adapters';
 
 export const dynamic = 'force-dynamic';
 
-// Development-only manual trigger. Returns 404 in production so it cannot be
-// reached in a real deployment.
+// Internal manual trigger. Protected in every environment by a shared-secret
+// bearer token (Authorization: Bearer <INTERNAL_API_TOKEN>), not a NODE_ENV check.
 export const POST = withErrorHandling(async (request: Request) => {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
+  assertInternalApiToken(request);
 
   const body = (await request.json().catch(() => null)) as { paymentEventId?: unknown } | null;
   const paymentEventId = body?.paymentEventId;
@@ -42,7 +43,7 @@ export const POST = withErrorHandling(async (request: Request) => {
       processingStore: createProcessingStore(),
       recoveryStore: createRecoveryStore(),
       messageStore: createMessageStore(),
-      messagingProvider: createConsoleMessagingProvider(),
+      messagingProvider: createMessagingProvider(),
       messagingProviderName: getEnv().MESSAGING_PROVIDER,
       tokenStore: createTokenStore(),
       clock: { now: () => new Date() },

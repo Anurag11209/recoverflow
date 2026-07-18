@@ -22,6 +22,7 @@ const base = {
   recoveryCaseId: 'rc_1',
   recoveryAttemptId: 'ra_1',
   recipientPhone: '+919876543210',
+  recipientEmail: null,
   failureCategory: 'INSUFFICIENT_FUNDS' as const,
   amount: 499,
   currency: 'INR',

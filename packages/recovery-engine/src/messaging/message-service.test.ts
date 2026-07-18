@@ -18,6 +18,7 @@ function makeFakeStore() {
         templateName: input.templateName,
         status: 'PENDING',
         recipientPhone: input.recipientPhone,
+        recipientEmail: input.recipientEmail,
         providerMessageId: null,
       };
       logs.set(rec.id, rec);
@@ -58,6 +59,7 @@ const input = (over: Partial<SendRecoveryMessageInput> = {}): SendRecoveryMessag
   recoveryCaseId: 'case_1',
   recoveryAttemptId: 'att_1',
   recipientPhone: '+919876543210',
+  recipientEmail: null,
   failureCategory: 'INSUFFICIENT_FUNDS',
   amount: 499,
   currency: 'INR',
@@ -74,6 +76,7 @@ describe('sendRecoveryMessage', () => {
     expect(sendMessage).toHaveBeenCalledOnce();
     expect(sendMessage).toHaveBeenCalledWith({
       phone: '+919876543210',
+      email: null,
       template: 'PAYMENT_FAILED',
       variables: { category: 'INSUFFICIENT_FUNDS', amount: '499', currency: 'INR' },
     });
@@ -109,17 +112,17 @@ describe('sendRecoveryMessage', () => {
     expect(logs.size).toBe(1);
   });
 
-  it('missing phone: log created then FAILED, provider never called', async () => {
+  it('no recipient (neither phone nor email): log created then FAILED, provider never called', async () => {
     const { store, logs } = makeFakeStore();
     const { provider, sendMessage } = okProvider();
     const r = await sendRecoveryMessage(
       store,
       provider,
       nullLogger(),
-      input({ recipientPhone: null }),
+      input({ recipientPhone: null, recipientEmail: null }),
     );
     expect(r.status).toBe('failed');
-    if (r.status === 'failed') expect(r.error).toBe('missing recipient phone');
+    if (r.status === 'failed') expect(r.error).toBe('missing recipient');
     expect(sendMessage).not.toHaveBeenCalled();
     expect([...logs.values()][0]!.status).toBe('FAILED');
   });

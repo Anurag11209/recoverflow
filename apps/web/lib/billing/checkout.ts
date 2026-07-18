@@ -23,16 +23,44 @@ const ACTIVE_SUBSCRIPTION_STATUSES: BillingStatus[] = ['ACTIVE', 'TRIALING', 'PA
  *
  * Throws ValidationError for a non-self-serve plan or an unconfigured price id.
  */
+/** Stripe request options we set (a subset of Stripe.RequestOptions). */
+export interface StripeRequestOptions {
+  idempotencyKey?: string;
+}
+
 /** The slice of the Stripe SDK the checkout flow uses (injectable for tests). */
 export interface StripeLike {
   customers: {
-    create(params: {
-      email: string;
-      name: string;
-      metadata: Record<string, string>;
-    }): Promise<{ id: string }>;
+    create(
+      params: {
+        email: string;
+        name: string;
+        metadata: Record<string, string>;
+      },
+      options?: StripeRequestOptions,
+    ): Promise<{ id: string }>;
   };
-  checkout: { sessions: { create(params: unknown): Promise<{ url: string | null }> } };
+  checkout: {
+    sessions: {
+      create(params: unknown, options?: StripeRequestOptions): Promise<{ url: string | null }>;
+    };
+  };
+}
+
+/**
+ * Deterministic Stripe idempotency keys for the checkout flow, so a retried
+ * request (e.g. after a network blip or a double-submit) reuses the same Stripe
+ * operation instead of creating a duplicate Customer or Checkout Session.
+ * Distinct logical operations get distinct keys.
+ */
+export function checkoutIdempotencyKeys(
+  merchantId: string,
+  tier: PlanTier,
+): { customer: string; session: string } {
+  return {
+    customer: `customer:create:${merchantId}`,
+    session: `checkout:create:${merchantId}:${tier}`,
+  };
 }
 
 export async function createCheckoutSession(
@@ -64,15 +92,19 @@ export async function createCheckoutSession(
   }
 
   const stripe: StripeLike = stripeClient ?? getStripe();
+  const idempotency = checkoutIdempotencyKeys(merchantId, tier);
 
   // Ensure a Stripe Customer exists; reuse the stored id if we have one.
   let stripeCustomerId = merchant.billingSubscription?.stripeCustomerId ?? null;
   if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email: merchant.email,
-      name: merchant.name,
-      metadata: { merchantId },
-    });
+    const customer = await stripe.customers.create(
+      {
+        email: merchant.email,
+        name: merchant.name,
+        metadata: { merchantId },
+      },
+      { idempotencyKey: idempotency.customer },
+    );
     stripeCustomerId = customer.id;
     // Upsert the local billing row with the new customer id (status stays
     // INCOMPLETE until the webhook confirms an active subscription in M4-3).
@@ -83,15 +115,18 @@ export async function createCheckoutSession(
     });
   }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
-    client_reference_id: merchantId,
-    metadata: { merchantId, tier },
-    success_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing/success`,
-    cancel_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing`,
-  });
+  const session = await stripe.checkout.sessions.create(
+    {
+      mode: 'subscription',
+      customer: stripeCustomerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: merchantId,
+      metadata: { merchantId, tier },
+      success_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing/success`,
+      cancel_url: `${getEnv().NEXT_PUBLIC_APP_URL}/dashboard/billing`,
+    },
+    { idempotencyKey: idempotency.session },
+  );
 
   if (!session.url) {
     throw new ValidationError('Stripe did not return a checkout URL');

@@ -1,7 +1,7 @@
 import { isUniqueViolation } from '../idempotency';
 import type { Logger } from '../logger';
 import { FAILURE_CATEGORIES, type FailureCategory } from './classifier';
-import type { AttemptStatus, DueAttempt, RecoveryAttemptRecord, RecoveryStore } from './types';
+import type { DueAttempt, RecoveryAttemptRecord, RecoveryStore } from './types';
 import type { MessageStore, MessagingProvider } from '../messaging/message-types';
 import { sendRecoveryMessage } from '../messaging/message-service';
 import type { Clock, TokenStore } from '../payment-update/token-types';

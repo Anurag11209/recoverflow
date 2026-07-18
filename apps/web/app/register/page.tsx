@@ -22,7 +22,8 @@ export default function RegisterPage() {
       password: form.get('password'),
     });
     if (result.ok) {
-      router.push('/dashboard');
+      // New merchants land on the guided onboarding page to connect Razorpay.
+      router.push('/onboarding');
       router.refresh();
     } else {
       setError(result.error ?? 'Unable to create your account.');
@@ -109,6 +110,18 @@ export default function RegisterPage() {
         >
           {pending ? 'Creating account…' : 'Create account'}
         </button>
+
+        <p className="text-xs text-gray-500">
+          By creating an account, you agree to our{' '}
+          <Link href="/terms" className="underline underline-offset-4 hover:text-gray-700">
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link href="/privacy" className="underline underline-offset-4 hover:text-gray-700">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </form>
 
       <p className="text-sm text-gray-500">

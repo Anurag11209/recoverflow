@@ -131,7 +131,11 @@ describe('createCheckoutSession (integration, Stripe mocked)', () => {
     });
     await createCheckoutSession(merchantId, 'STARTER', stripe);
 
-    expect(captured?.success_url).toMatch(/\/dashboard\/billing\/success$/);
+    // bug 4: success_url carries the Checkout Session id so the success page can
+    // reconcile if the webhook is late/lost.
+    expect(captured?.success_url).toContain(
+      '/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}',
+    );
     expect(captured?.cancel_url).toMatch(/\/dashboard\/billing$/);
   });
 

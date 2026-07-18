@@ -59,6 +59,23 @@ model Merchant {
   paymentUpdateTokens PaymentUpdateToken[]
   auditLogs           AuditLog[]
   billingSubscription BillingSubscription?
+  planLimitNotices    PlanLimitNotice[]
+}
+
+// Records that a merchant was notified (email) that they hit their monthly
+// plan limit and events began being dropped. One row per merchant per period
+// (UTC "YYYY-MM"), so the "limit reached" email is sent at most once per period.
+// This drives ONLY the email dedup — the in-app banner is derived live from
+// current usage, and enforcement at ingestion is unchanged.
+model PlanLimitNotice {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  period     String
+  createdAt  DateTime @default(now())
+
+  @@unique([merchantId, period])
+  @@index([merchantId])
 }
 
 model AuditLog {

@@ -6,6 +6,7 @@ import { assertWithinRateLimit, RATE_LIMITS } from '@/lib/rate-limit/guard';
 import { processWebhook } from '@/lib/razorpay/service';
 import { decryptSecret } from '@/lib/crypto/secret-cipher';
 import { checkPlanLimit } from '@/lib/billing/plan-limits';
+import { notifyMerchantLimitReached } from '@/lib/billing/limit-notify-service';
 
 // Webhooks must never be cached or statically optimized, and must read the raw
 // body (request.text()) — re-serializing via .json() would change the bytes and
@@ -83,6 +84,28 @@ export const POST = withErrorHandling(async (request: Request, ctx: Ctx) => {
             },
             'failed payment exceeds monthly plan limit; recovery skipped',
           );
+          // Visibility/notification only — enforcement above is unchanged (the
+          // event is still acked-and-dropped). Notify the merchant (once per
+          // period) that events are being dropped. Best-effort: a notification
+          // failure must never fail the webhook ack.
+          if (limit.limit !== null) {
+            try {
+              await notifyMerchantLimitReached({
+                merchantId: merchant.id,
+                plan: limit.plan,
+                limit: limit.limit,
+              });
+            } catch (err) {
+              logger.error(
+                {
+                  event: 'plan_limit_notify_failed',
+                  merchantId: merchant.id,
+                  err: err instanceof Error ? err.message : String(err),
+                },
+                'plan limit notification failed',
+              );
+            }
+          }
           return NextResponse.json({ success: true });
         }
       }

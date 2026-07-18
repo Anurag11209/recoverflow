@@ -176,6 +176,11 @@ model BillingSubscription {
   currentPeriodStart   DateTime?
   currentPeriodEnd     DateTime?
   cancelAtPeriodEnd    Boolean       @default(false)
+  // `created` timestamp of the most recent Stripe event we applied to this row.
+  // Out-of-order guard: a subscription/invoice event older than this is ignored
+  // so a late/re-ordered delivery can't overwrite newer state. Null until the
+  // first status-moving event is applied.
+  lastStripeEventAt    DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
 

@@ -52,22 +52,18 @@ function secondsToDate(seconds: number | null | undefined): Date | null {
   return typeof seconds === 'number' ? new Date(seconds * 1000) : null;
 }
 
-/** Locate the BillingSubscription owning a Stripe customer, or null + warn. */
-async function merchantForCustomer(tx: Tx, stripeCustomerId: string): Promise<string | null> {
-  const existing = await tx.billingSubscription.findUnique({
-    where: { stripeCustomerId },
-    select: { merchantId: true },
-  });
-  if (!existing) {
-    // No local row for this customer — nothing we can attribute it to. Ack so
-    // Stripe stops retrying; log for investigation.
-    logger.warn(
-      { event: 'stripe_webhook_unknown_customer', stripeCustomerId },
-      'Stripe event for a customer with no BillingSubscription row',
-    );
-    return null;
-  }
-  return existing.merchantId;
+/**
+ * Out-of-order guard: is this event OLDER than the last event we applied to the
+ * subscription? Stripe may deliver events out of order, so an event created
+ * before the last-applied one must not overwrite newer state. A row with no
+ * stored timestamp (never applied) is never stale.
+ */
+export function isStripeEventStale(
+  eventCreatedSeconds: number,
+  storedLastEventAt: Date | null,
+): boolean {
+  if (!storedLastEventAt) return false;
+  return eventCreatedSeconds * 1000 < storedLastEventAt.getTime();
 }
 
 /**
@@ -98,17 +94,21 @@ export function resolveSubscriptionTarget(
  * yet bound to any subscription is associated on the first event.
  * The price on the subscription is the source of truth for which plan is active.
  */
-async function applySubscription(tx: Tx, subscription: Stripe.Subscription): Promise<boolean> {
+async function applySubscription(
+  tx: Tx,
+  subscription: Stripe.Subscription,
+  eventCreatedSeconds: number,
+): Promise<boolean> {
   const stripeCustomerId = customerIdOf(subscription.customer);
 
   const bySub = await tx.billingSubscription.findUnique({
     where: { stripeSubscriptionId: subscription.id },
-    select: { merchantId: true },
+    select: { merchantId: true, lastStripeEventAt: true },
   });
   const byCustomer = stripeCustomerId
     ? await tx.billingSubscription.findUnique({
         where: { stripeCustomerId },
-        select: { merchantId: true, stripeSubscriptionId: true },
+        select: { merchantId: true, stripeSubscriptionId: true, lastStripeEventAt: true },
       })
     : null;
 
@@ -125,6 +125,20 @@ async function applySubscription(tx: Tx, subscription: Stripe.Subscription): Pro
     return false;
   }
 
+  // Out-of-order guard: ignore an event older than the last one applied to this row.
+  const matched = bySub ?? byCustomer;
+  if (isStripeEventStale(eventCreatedSeconds, matched?.lastStripeEventAt ?? null)) {
+    logger.info(
+      {
+        event: 'stripe_webhook_out_of_order',
+        stripeSubscriptionId: subscription.id,
+        eventCreatedSeconds,
+      },
+      'stale (out-of-order) Stripe subscription event ignored',
+    );
+    return false;
+  }
+
   const item = subscription.items.data[0];
   const priceId = item?.price.id ?? null;
   const tier: PlanTier | null = priceId ? tierForStripePriceId(priceId) : null;
@@ -137,6 +151,7 @@ async function applySubscription(tx: Tx, subscription: Stripe.Subscription): Pro
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       currentPeriodStart: secondsToDate(item?.current_period_start),
       currentPeriodEnd: secondsToDate(item?.current_period_end),
+      lastStripeEventAt: new Date(eventCreatedSeconds * 1000),
       ...(tier ? { plan: tier } : {}),
     },
   });
@@ -178,29 +193,54 @@ async function applyInvoiceStatus(
   tx: Tx,
   invoice: Stripe.Invoice,
   status: BillingStatus,
+  eventCreatedSeconds: number,
 ): Promise<boolean> {
   const stripeCustomerId = customerIdOf(invoice.customer);
   if (!stripeCustomerId) return false;
-  const merchantId = await merchantForCustomer(tx, stripeCustomerId);
-  if (!merchantId) return false;
 
-  await tx.billingSubscription.update({ where: { merchantId }, data: { status } });
+  const row = await tx.billingSubscription.findUnique({
+    where: { stripeCustomerId },
+    select: { merchantId: true, lastStripeEventAt: true },
+  });
+  if (!row) {
+    // No local row for this customer — ack so Stripe stops retrying; log it.
+    logger.warn(
+      { event: 'stripe_webhook_unknown_customer', stripeCustomerId },
+      'Stripe invoice for a customer with no BillingSubscription row',
+    );
+    return false;
+  }
+
+  // Out-of-order guard: ignore an event older than the last one applied.
+  if (isStripeEventStale(eventCreatedSeconds, row.lastStripeEventAt)) {
+    logger.info(
+      { event: 'stripe_webhook_out_of_order', stripeCustomerId, eventCreatedSeconds },
+      'stale (out-of-order) Stripe invoice event ignored',
+    );
+    return false;
+  }
+
+  await tx.billingSubscription.update({
+    where: { merchantId: row.merchantId },
+    data: { status, lastStripeEventAt: new Date(eventCreatedSeconds * 1000) },
+  });
   return true;
 }
 
 /** Route a verified event to its handler. Returns whether it mutated state. */
 async function dispatch(tx: Tx, event: Stripe.Event): Promise<boolean> {
+  const created = event.created; // epoch seconds; used for the out-of-order guard
   switch (event.type) {
     case 'checkout.session.completed':
       return applyCheckoutCompleted(tx, event.data.object);
     case 'customer.subscription.created':
     case 'customer.subscription.updated':
     case 'customer.subscription.deleted':
-      return applySubscription(tx, event.data.object);
+      return applySubscription(tx, event.data.object, created);
     case 'invoice.paid':
-      return applyInvoiceStatus(tx, event.data.object, 'ACTIVE');
+      return applyInvoiceStatus(tx, event.data.object, 'ACTIVE', created);
     case 'invoice.payment_failed':
-      return applyInvoiceStatus(tx, event.data.object, 'PAST_DUE');
+      return applyInvoiceStatus(tx, event.data.object, 'PAST_DUE', created);
     default:
       return false;
   }

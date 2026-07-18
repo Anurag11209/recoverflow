@@ -71,22 +71,66 @@ async function merchantForCustomer(tx: Tx, stripeCustomerId: string): Promise<st
 }
 
 /**
- * Reconcile a BillingSubscription row from a Stripe Subscription object. The row
- * was created at checkout with stripeCustomerId, so we locate it by customer.
+ * Decide which billing row a subscription event should update, given the row (if
+ * any) already bound to this subscription id and the row (if any) for its
+ * customer. Preferring the subscription-id match is what stops a STALE event —
+ * e.g. a delayed `subscription.deleted` for a superseded subscription — from
+ * clobbering the merchant's current one: if the customer's row is already bound
+ * to a DIFFERENT subscription, the stale event has no target and is ignored. A
+ * customer row not yet bound to any subscription is the first-association case
+ * (the row was created at checkout with only stripeCustomerId).
+ */
+export function resolveSubscriptionTarget(
+  bySubscriptionId: { merchantId: string } | null,
+  byCustomer: { merchantId: string; stripeSubscriptionId: string | null } | null,
+): { merchantId: string } | null {
+  if (bySubscriptionId) return { merchantId: bySubscriptionId.merchantId };
+  if (byCustomer && byCustomer.stripeSubscriptionId === null) {
+    return { merchantId: byCustomer.merchantId };
+  }
+  return null;
+}
+
+/**
+ * Reconcile a BillingSubscription row from a Stripe Subscription object. We
+ * locate the row by the SUBSCRIPTION id (not the customer), so a stale event for
+ * a superseded subscription cannot clobber the current one; a customer row not
+ * yet bound to any subscription is associated on the first event.
  * The price on the subscription is the source of truth for which plan is active.
  */
 async function applySubscription(tx: Tx, subscription: Stripe.Subscription): Promise<boolean> {
   const stripeCustomerId = customerIdOf(subscription.customer);
-  if (!stripeCustomerId) return false;
-  const merchantId = await merchantForCustomer(tx, stripeCustomerId);
-  if (!merchantId) return false;
+
+  const bySub = await tx.billingSubscription.findUnique({
+    where: { stripeSubscriptionId: subscription.id },
+    select: { merchantId: true },
+  });
+  const byCustomer = stripeCustomerId
+    ? await tx.billingSubscription.findUnique({
+        where: { stripeCustomerId },
+        select: { merchantId: true, stripeSubscriptionId: true },
+      })
+    : null;
+
+  const target = resolveSubscriptionTarget(bySub, byCustomer);
+  if (!target) {
+    logger.warn(
+      {
+        event: 'stripe_webhook_no_subscription_target',
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId,
+      },
+      'Stripe subscription event has no matching billing row (unknown or superseded subscription); ignored',
+    );
+    return false;
+  }
 
   const item = subscription.items.data[0];
   const priceId = item?.price.id ?? null;
   const tier: PlanTier | null = priceId ? tierForStripePriceId(priceId) : null;
   // In this API version the period window lives on the subscription item.
   await tx.billingSubscription.update({
-    where: { merchantId },
+    where: { merchantId: target.merchantId },
     data: {
       status: mapStripeStatus(subscription.status),
       stripeSubscriptionId: subscription.id,

@@ -163,6 +163,25 @@ describe('applyStripeEvent (integration)', () => {
     expect(row?.status).toBe('CANCELED');
   });
 
+  it('does not let a stale subscription.deleted clobber a newer active subscription (bug 1)', async () => {
+    // The merchant's row now tracks a NEW subscription (sub_new), active.
+    await seedSubscription({ plan: 'GROWTH', status: 'ACTIVE', stripeSubscriptionId: 'sub_new' });
+
+    // A delayed delete for the OLD subscription (sub_old), same customer, arrives.
+    const res = await applyStripeEvent(
+      subscriptionEvent(
+        'customer.subscription.deleted',
+        { id: 'sub_old', status: 'canceled' },
+        'evt_stale_delete',
+      ),
+    );
+    expect(res.handled).toBe(false); // no target for the superseded subscription
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('ACTIVE'); // NOT clobbered
+    expect(row?.stripeSubscriptionId).toBe('sub_new');
+  });
+
   it('marks ACTIVE on invoice.paid (recovers from past_due)', async () => {
     await seedSubscription({ plan: 'GROWTH', status: 'PAST_DUE' });
 

@@ -42,3 +42,24 @@ describe('assertWithinRateLimit', () => {
     expect(() => assertWithinRateLimit('login', '2.2.2.2', RATE_LIMITS.auth)).not.toThrow();
   });
 });
+
+describe('RATE_LIMITS.stripeWebhook (bug 5: Stripe webhook gets its own bucket)', () => {
+  it('is a dedicated rule, not the shared webhook one', () => {
+    expect(RATE_LIMITS.stripeWebhook).toBeDefined();
+    expect(RATE_LIMITS.stripeWebhook).not.toBe(RATE_LIMITS.webhook);
+  });
+
+  it('is unaffected when the shared webhook bucket is exhausted', () => {
+    // Exhaust the shared `webhook` scope for the "stripe" source.
+    for (let i = 0; i < RATE_LIMITS.webhook.limit; i++) {
+      assertWithinRateLimit('webhook', 'stripe', RATE_LIMITS.webhook);
+    }
+    expect(() => assertWithinRateLimit('webhook', 'stripe', RATE_LIMITS.webhook)).toThrow(
+      TooManyRequestsError,
+    );
+    // The dedicated Stripe scope is a separate bucket, so it still admits traffic.
+    expect(() =>
+      assertWithinRateLimit('stripe-webhook', 'stripe', RATE_LIMITS.stripeWebhook),
+    ).not.toThrow();
+  });
+});

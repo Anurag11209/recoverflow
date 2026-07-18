@@ -13,8 +13,9 @@ export const dynamic = 'force-dynamic';
 // webhooks are cross-origin; the Stripe signature is the auth.
 export const POST = withErrorHandling(async (request: Request) => {
   // All Stripe deliveries share Stripe's IPs, so key the limiter by source name
-  // rather than IP (per-IP would throttle every event together).
-  assertWithinRateLimit('webhook', 'stripe', RATE_LIMITS.webhook);
+  // rather than IP (per-IP would throttle every event together). Its OWN bucket
+  // (not the shared `webhook` one) so Stripe and Razorpay traffic are isolated.
+  assertWithinRateLimit('stripe-webhook', 'stripe', RATE_LIMITS.stripeWebhook);
 
   const rawBody = await request.text();
   const signature = request.headers.get('stripe-signature');

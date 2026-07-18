@@ -11,7 +11,11 @@ const limiter = new FixedWindowRateLimiter();
 export const RATE_LIMITS = {
   auth: { limit: 10, windowMs: 60_000 }, // 10/min per IP (login, register)
   paymentUpdate: { limit: 20, windowMs: 60_000 }, // 20/min per IP
-  webhook: { limit: 120, windowMs: 60_000 }, // 120/min per merchant token
+  webhook: { limit: 120, windowMs: 60_000 }, // 120/min per Razorpay merchant token
+  // Stripe billing webhooks get their OWN bucket rather than sharing the generic
+  // `webhook` one, so a burst of Stripe events can't eat the Razorpay budget (or
+  // vice versa) and either can be tuned independently.
+  stripeWebhook: { limit: 120, windowMs: 60_000 }, // 120/min for Stripe billing
 } as const satisfies Record<string, RateLimitRule>;
 
 /**

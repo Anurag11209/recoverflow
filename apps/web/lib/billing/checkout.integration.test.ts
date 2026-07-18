@@ -91,6 +91,32 @@ describe('createCheckoutSession (integration, Stripe mocked)', () => {
     expect(result.url).toBe('https://checkout.stripe.test/session/abc');
   });
 
+  it('passes Stripe idempotency keys to customer and session creation (bug 3)', async () => {
+    let customerOpts: unknown;
+    let sessionOpts: unknown;
+    const stripe = fakeStripe({
+      customers: {
+        create: vi.fn(async (_params, options) => {
+          customerOpts = options;
+          return { id: 'cus_test_123' };
+        }),
+      },
+      checkout: {
+        sessions: {
+          create: vi.fn(async (_params, options) => {
+            sessionOpts = options;
+            return { url: 'https://checkout.stripe.test/session/abc' };
+          }),
+        },
+      },
+    });
+
+    await createCheckoutSession(merchantId, 'STARTER', stripe);
+
+    expect((customerOpts as { idempotencyKey?: string } | undefined)?.idempotencyKey).toBeTruthy();
+    expect((sessionOpts as { idempotencyKey?: string } | undefined)?.idempotencyKey).toBeTruthy();
+  });
+
   it('uses the spec success/cancel URLs', async () => {
     let captured: { success_url?: string; cancel_url?: string } | undefined;
     const stripe = fakeStripe({
@@ -105,7 +131,11 @@ describe('createCheckoutSession (integration, Stripe mocked)', () => {
     });
     await createCheckoutSession(merchantId, 'STARTER', stripe);
 
-    expect(captured?.success_url).toMatch(/\/dashboard\/billing\/success$/);
+    // bug 4: success_url carries the Checkout Session id so the success page can
+    // reconcile if the webhook is late/lost.
+    expect(captured?.success_url).toContain(
+      '/dashboard/billing/success?session_id={CHECKOUT_SESSION_ID}',
+    );
     expect(captured?.cancel_url).toMatch(/\/dashboard\/billing$/);
   });
 

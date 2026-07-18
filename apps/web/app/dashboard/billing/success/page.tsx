@@ -1,33 +1,67 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { prisma } from '@recoverflow/db';
+import { logger } from '@recoverflow/shared';
 import { getCurrentSession } from '@/lib/auth/current';
 import { PLANS } from '@/lib/billing/plans';
 import { billingView } from '@/lib/billing/summary';
+import { reconcileCheckoutSession } from '@/lib/billing/checkout';
 
 export const dynamic = 'force-dynamic';
 
+const BILLING_SELECT = {
+  plan: true,
+  status: true,
+  stripeCustomerId: true,
+  currentPeriodEnd: true,
+  cancelAtPeriodEnd: true,
+} as const;
+
 /**
  * Post-checkout confirmation (the Stripe success_url target). The subscription
- * is activated asynchronously by the webhook, so the row may still be INCOMPLETE
- * for a moment after the redirect — the copy reflects that rather than asserting
- * an active subscription that hasn't landed yet.
+ * is normally activated by the webhook, but if that is late or lost the row may
+ * still be INCOMPLETE — so when Stripe hands us the {CHECKOUT_SESSION_ID} we
+ * reconcile directly from the session as a fallback before rendering.
  */
-export default async function BillingSuccessPage() {
+export default async function BillingSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}) {
   const current = await getCurrentSession();
   if (!current) {
     redirect('/login');
   }
-  const billing = await prisma.billingSubscription.findUnique({
-    where: { merchantId: current.user.merchant.id },
-    select: {
-      plan: true,
-      status: true,
-      stripeCustomerId: true,
-      currentPeriodEnd: true,
-      cancelAtPeriodEnd: true,
-    },
+  const merchantId = current.user.merchant.id;
+  const { session_id: sessionId } = await searchParams;
+
+  let billing = await prisma.billingSubscription.findUnique({
+    where: { merchantId },
+    select: BILLING_SELECT,
   });
+
+  // Fallback: not active yet but we have the Checkout Session id -> the webhook
+  // may be late/lost, so reconcile directly from Stripe. Best-effort; a failure
+  // just leaves the "activating…" copy and the webhook catches up.
+  if (sessionId && billingView(billing).state !== 'active') {
+    try {
+      await reconcileCheckoutSession(merchantId, sessionId);
+      billing = await prisma.billingSubscription.findUnique({
+        where: { merchantId },
+        select: BILLING_SELECT,
+      });
+    } catch (err) {
+      logger.error(
+        {
+          event: 'billing_success_reconcile_failed',
+          merchantId,
+          err: err instanceof Error ? err.message : String(err),
+        },
+        'checkout success reconciliation failed; webhook will catch up',
+      );
+    }
+  }
+
   const view = billingView(billing);
   const isActive = view.state === 'active';
 

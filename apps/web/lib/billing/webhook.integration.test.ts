@@ -163,6 +163,64 @@ describe('applyStripeEvent (integration)', () => {
     expect(row?.status).toBe('CANCELED');
   });
 
+  it('does not let a stale subscription.deleted clobber a newer active subscription (bug 1)', async () => {
+    // The merchant's row now tracks a NEW subscription (sub_new), active.
+    await seedSubscription({ plan: 'GROWTH', status: 'ACTIVE', stripeSubscriptionId: 'sub_new' });
+
+    // A delayed delete for the OLD subscription (sub_old), same customer, arrives.
+    const res = await applyStripeEvent(
+      subscriptionEvent(
+        'customer.subscription.deleted',
+        { id: 'sub_old', status: 'canceled' },
+        'evt_stale_delete',
+      ),
+    );
+    expect(res.handled).toBe(false); // no target for the superseded subscription
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('ACTIVE'); // NOT clobbered
+    expect(row?.stripeSubscriptionId).toBe('sub_new');
+  });
+
+  it('ignores an out-of-order (older) subscription event (bug 2)', async () => {
+    const OLDER = PERIOD_END - 3600;
+    await seedSubscription({
+      status: 'ACTIVE',
+      stripeSubscriptionId: 'sub_123',
+      lastStripeEventAt: new Date(PERIOD_END * 1000),
+    });
+
+    const stale = subscriptionEvent(
+      'customer.subscription.updated',
+      { status: 'past_due' },
+      'evt_out_of_order',
+    );
+    (stale as { created: number }).created = OLDER;
+
+    const res = await applyStripeEvent(stale);
+    expect(res.handled).toBe(false); // older than stored state -> ignored
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('ACTIVE'); // unchanged
+  });
+
+  it('applies a newer event and advances the stored event time (bug 2 control)', async () => {
+    await seedSubscription({
+      status: 'ACTIVE',
+      stripeSubscriptionId: 'sub_123',
+      lastStripeEventAt: new Date((PERIOD_END - 7200) * 1000),
+    });
+
+    const res = await applyStripeEvent(
+      subscriptionEvent('customer.subscription.updated', { status: 'past_due' }, 'evt_newer_order'),
+    );
+    expect(res.handled).toBe(true);
+
+    const row = await prisma.billingSubscription.findUnique({ where: { merchantId } });
+    expect(row?.status).toBe('PAST_DUE');
+    expect(row?.lastStripeEventAt?.getTime()).toBe(PERIOD_END * 1000);
+  });
+
   it('marks ACTIVE on invoice.paid (recovers from past_due)', async () => {
     await seedSubscription({ plan: 'GROWTH', status: 'PAST_DUE' });
 

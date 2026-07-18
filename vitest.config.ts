@@ -13,6 +13,7 @@ export default defineConfig({
       NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
       RAZORPAY_WEBHOOK_SECRET: 'whsec_test_unit',
       APP_ENCRYPTION_KEY: 'cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=',
+      INTERNAL_API_TOKEN: 'test-internal-api-token-please-change',
     },
   },
 });

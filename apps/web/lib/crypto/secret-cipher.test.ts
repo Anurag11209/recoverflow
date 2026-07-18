@@ -26,10 +26,10 @@ describe('secret-cipher', () => {
     expect(decryptSecret(b)).toBe('same');
   });
 
-  it('passes through legacy plaintext (no v1: prefix) unchanged', () => {
+  it('rejects legacy plaintext (no v1: prefix) instead of passing it through', () => {
     const legacy = 'whsec_legacy_plaintext';
     expect(isEncrypted(legacy)).toBe(false);
-    expect(decryptSecret(legacy)).toBe(legacy);
+    expect(() => decryptSecret(legacy)).toThrow(/non-v1/);
   });
 
   it('detects tampering: a flipped ciphertext byte fails authentication', () => {

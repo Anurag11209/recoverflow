@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@recoverflow/db';
 import { createPaymentUpdateToken } from '@recoverflow/recovery-engine';
 import { logger } from '@recoverflow/shared';
-import { createTokenStore } from './store';
+import { createTokenStore } from '@recoverflow/adapters';
 import { validatePaymentToken, submitPaymentUpdate } from './service';
 
 async function clean() {

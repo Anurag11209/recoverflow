@@ -14,6 +14,8 @@ export interface SendRecoveryMessageInput {
   merchantId: string | null;
   recoveryAttemptId: string;
   recipientPhone: string | null;
+  /** Recipient email; the send channel is chosen by the injected provider. */
+  recipientEmail: string | null;
   failureCategory: FailureCategory;
   amount: number | null;
   currency: string | null;
@@ -30,6 +32,7 @@ export interface SendOneMessageInput {
   messageType: MessageType;
   template: MessageTemplate;
   recipientPhone: string | null;
+  recipientEmail: string | null;
   variables: Record<string, string>;
   providerName: string;
 }
@@ -76,6 +79,7 @@ export async function sendMessage(
       provider: input.providerName,
       templateName: input.template,
       recipientPhone: input.recipientPhone,
+      recipientEmail: input.recipientEmail,
       payload: input.variables,
     });
   } catch (e) {
@@ -110,8 +114,11 @@ export async function sendMessage(
     'message log created',
   );
 
-  if (!input.recipientPhone) {
-    const error = 'missing recipient phone';
+  // Channel-agnostic guard: with NEITHER a phone nor an email there is nobody to
+  // deliver to on any channel. The concrete provider enforces the specific field
+  // its channel needs (e.g. Resend requires email) and throws otherwise.
+  if (!input.recipientPhone && !input.recipientEmail) {
+    const error = 'missing recipient';
     await store.markFailed(log.id, error);
     logger.error(
       {
@@ -121,7 +128,7 @@ export async function sendMessage(
         template: input.template,
         err: error,
       },
-      'message failed: no recipient phone',
+      'message failed: no recipient (phone or email)',
     );
     return { status: 'failed', messageLogId: log.id, error };
   }
@@ -129,6 +136,7 @@ export async function sendMessage(
   try {
     const { providerMessageId } = await provider.sendMessage({
       phone: input.recipientPhone,
+      email: input.recipientEmail,
       template: input.template,
       variables: input.variables,
     });
@@ -194,6 +202,7 @@ export async function sendRecoveryMessage(
     messageType: 'PAYMENT_FAILED',
     template,
     recipientPhone: input.recipientPhone,
+    recipientEmail: input.recipientEmail,
     variables: buildVariables(input),
     providerName: input.providerName,
   });

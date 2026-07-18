@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { withErrorHandling } from '@/lib/api';
-import { createMessageStore } from '@/lib/messaging/store';
+import { assertInternalApiToken } from '@/lib/auth/internal-token';
+import { createMessageStore } from '@recoverflow/adapters';
 
 export const dynamic = 'force-dynamic';
 
-// Development-only verification endpoint. 404 in production.
-export const GET = withErrorHandling(async () => {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
+// Internal verification endpoint. Protected in every environment by a
+// shared-secret bearer token (Authorization: Bearer <INTERNAL_API_TOKEN>).
+export const GET = withErrorHandling(async (request: Request) => {
+  assertInternalApiToken(request);
   const messages = await createMessageStore().listMessages();
   return NextResponse.json(
     messages.map((m) => ({

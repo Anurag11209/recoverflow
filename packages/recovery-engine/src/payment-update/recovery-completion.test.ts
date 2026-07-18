@@ -70,6 +70,7 @@ const input = {
   recoveryCaseId: 'rc_1',
   providerPaymentId: 'pay_1',
   recipientPhone: '+919876543210',
+  recipientEmail: null,
   amount: 499,
   currency: 'INR',
 };

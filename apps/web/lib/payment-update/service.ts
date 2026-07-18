@@ -1,10 +1,12 @@
 import { prisma } from '@recoverflow/db';
 import { validateRawToken, consumeToken, completeRecovery } from '@recoverflow/recovery-engine';
-import { logger } from '@recoverflow/shared';
-import { createTokenStore } from './store';
-import { createRecoveryStore } from '../recovery/store';
-import { createMessageStore } from '../messaging/store';
-import { createConsoleMessagingProvider } from '../messaging/console-provider';
+import { logger, getEnv } from '@recoverflow/shared';
+import {
+  createTokenStore,
+  createRecoveryStore,
+  createMessageStore,
+  createMessagingProvider,
+} from '@recoverflow/adapters';
 import { createRazorpayPaymentUpdater } from './razorpay-updater';
 
 const tokenDeps = () => ({
@@ -64,6 +66,7 @@ export async function submitPaymentUpdate(rawToken: string): Promise<SubmitResul
       amount: true,
       currency: true,
       customerPhone: true,
+      customerEmail: true,
       providerPaymentId: true,
     },
   });
@@ -73,8 +76,8 @@ export async function submitPaymentUpdate(rawToken: string): Promise<SubmitResul
     {
       recoveryStore: createRecoveryStore(),
       messageStore: createMessageStore(),
-      messagingProvider: createConsoleMessagingProvider(),
-      messagingProviderName: 'console',
+      messagingProvider: createMessagingProvider(),
+      messagingProviderName: getEnv().MESSAGING_PROVIDER,
       updater: createRazorpayPaymentUpdater(),
       logger,
       now: () => new Date(),
@@ -84,6 +87,7 @@ export async function submitPaymentUpdate(rawToken: string): Promise<SubmitResul
       merchantId: recoveryCase.merchantId,
       providerPaymentId: recoveryCase.providerPaymentId,
       recipientPhone: recoveryCase.customerPhone,
+      recipientEmail: recoveryCase.customerEmail,
       amount: recoveryCase.amount === null ? null : Number(recoveryCase.amount),
       currency: recoveryCase.currency,
     },

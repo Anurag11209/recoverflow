@@ -24,14 +24,22 @@ export type {
 } from './types';
 
 // Recovery (Phase 5)
-export { classifyFailure, FAILURE_CATEGORIES } from './recovery/classifier';
-export type { FailureCategory, ClassifiedFailure } from './recovery/classifier';
+export { classifyFailure, extractPaymentIdentity, FAILURE_CATEGORIES } from './recovery/classifier';
+export type { FailureCategory, ClassifiedFailure, PaymentIdentity } from './recovery/classifier';
 export {
   createRecoveryCase,
   updateCaseStatus,
   getCaseByPaymentEventId,
 } from './recovery/case-service';
-export { scheduleFirstAttempt, ATTEMPT_SCHEDULE_HOURS } from './recovery/attempt-service';
+export {
+  scheduleFirstAttempt,
+  ATTEMPT_SCHEDULE_HOURS,
+  MAX_ATTEMPTS,
+  isSubscriptionActive,
+  nextAttemptSchedule,
+  runDueAttempt,
+} from './recovery/attempt-service';
+export type { RunDueAttemptDeps, LadderOutcome, HaltReason } from './recovery/attempt-service';
 export type {
   RecoveryStore,
   RecoveryStatus,
@@ -40,6 +48,8 @@ export type {
   NewAttemptInput,
   RecoveryCaseRecord,
   RecoveryAttemptRecord,
+  RecoveryAttribution,
+  DueAttempt,
 } from './recovery/types';
 
 // Messaging (Phase 6)

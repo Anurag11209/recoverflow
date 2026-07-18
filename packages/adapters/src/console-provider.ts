@@ -11,15 +11,17 @@ export function createConsoleMessagingProvider(): MessagingProvider {
   return {
     async sendMessage(input: SendMessageInput): Promise<{ providerMessageId: string }> {
       const providerMessageId = `msg_${++seq}`;
+      const recipient = input.phone ?? input.email ?? 'unknown';
       logger.info(
         {
           event: 'whatsapp_console_send',
           phone: input.phone,
+          email: input.email,
           template: input.template,
           variables: input.variables,
           providerMessageId,
         },
-        `[console-whatsapp] -> ${input.phone}: ${input.template}`,
+        `[console-whatsapp] -> ${recipient}: ${input.template}`,
       );
       return { providerMessageId };
     },

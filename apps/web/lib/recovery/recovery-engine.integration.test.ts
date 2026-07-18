@@ -2,11 +2,13 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { prisma } from '@recoverflow/db';
 import { processPaymentEvent } from '@recoverflow/recovery-engine';
 import { logger } from '@recoverflow/shared';
-import { createProcessingStore } from '../processing/store';
-import { createRecoveryStore } from './store';
-import { createMessageStore } from '../messaging/store';
-import { createTokenStore } from '../payment-update/store';
-import { createConsoleMessagingProvider } from '../messaging/console-provider';
+import {
+  createProcessingStore,
+  createRecoveryStore,
+  createMessageStore,
+  createTokenStore,
+  createConsoleMessagingProvider,
+} from '@recoverflow/adapters';
 
 async function clean() {
   await prisma.paymentUpdateToken.deleteMany();

@@ -22,6 +22,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       RAZORPAY_WEBHOOK_SECRET: whsec_ci
       APP_ENCRYPTION_KEY: cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
+      INTERNAL_API_TOKEN: test-internal-api-token-please-change
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -51,6 +52,7 @@ jobs:
           NEXT_PUBLIC_APP_URL=http://localhost:3000
           RAZORPAY_WEBHOOK_SECRET=whsec_ci
           APP_ENCRYPTION_KEY=cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
+          INTERNAL_API_TOKEN=test-internal-api-token-please-change
           ENVEOF
       - name: Build
         run: pnpm build
@@ -77,6 +79,7 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       RAZORPAY_WEBHOOK_SECRET: whsec_ci
       APP_ENCRYPTION_KEY: cU//QyWYuIT10dLCh3Hvi0mFqf6i08jd+WQ3jx2BDWc=
+      INTERNAL_API_TOKEN: test-internal-api-token-please-change
     steps:
       - name: Checkout
         uses: actions/checkout@v5

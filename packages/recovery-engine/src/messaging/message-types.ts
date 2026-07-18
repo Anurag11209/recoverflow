@@ -15,12 +15,20 @@ export type MessageStatus = 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
 export type MessageType = 'PAYMENT_FAILED' | 'PAYMENT_REMINDER' | 'PAYMENT_RECOVERED';
 
 export interface SendMessageInput {
-  phone: string;
+  /** Recipient phone (WhatsApp/console channel). Null when the channel is email. */
+  phone: string | null;
+  /** Recipient email (Resend channel). Null when the channel is phone. */
+  email: string | null;
   template: MessageTemplate;
   variables: Record<string, string>;
 }
 
-/** The only thing the engine knows about WhatsApp (or any channel). */
+/**
+ * The only thing the engine knows about a delivery channel (WhatsApp, email, …).
+ * A concrete provider reads whichever recipient field its channel needs and
+ * THROWS if that field is absent (the message service catches it -> FAILED), so
+ * a channel/recipient mismatch fails loudly rather than silently dropping.
+ */
 export interface MessagingProvider {
   sendMessage(input: SendMessageInput): Promise<{ providerMessageId: string }>;
 }
@@ -35,6 +43,7 @@ export interface NewMessageLogInput {
   provider: string;
   templateName: MessageTemplate;
   recipientPhone: string | null;
+  recipientEmail: string | null;
   payload: Record<string, string>;
 }
 
@@ -45,6 +54,7 @@ export interface MessageLogRecord {
   templateName: string;
   status: MessageStatus;
   recipientPhone: string | null;
+  recipientEmail: string | null;
   providerMessageId: string | null;
 }
 

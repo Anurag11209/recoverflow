@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getCurrentSession } from '@/lib/auth/current';
 import { getDashboardStats } from '@/lib/dashboard/stats';
+import { getUsageMeter } from '@/lib/billing/usage';
+import { UsageMeterCard } from '@/components/dashboard/usage-meter';
+import { PlanLimitBanner } from '@/components/dashboard/limit-banner';
 
 // Reads the session cookie + live stats, so it must run per-request.
 export const dynamic = 'force-dynamic';
@@ -17,10 +20,16 @@ export default async function DashboardPage() {
     redirect('/login');
   }
   const { user } = current;
-  const stats = await getDashboardStats(user.merchant.id);
+  const [stats, usage] = await Promise.all([
+    getDashboardStats(user.merchant.id),
+    getUsageMeter(user.merchant.id),
+  ]);
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Over-limit banner (renders only when events are being dropped). */}
+      <PlanLimitBanner meter={usage} />
+
       {/* Hero: the two numbers a merchant actually runs the business on. */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-lg border border-gray-200 p-5">
@@ -55,6 +64,11 @@ export default async function DashboardPage() {
           <p className="text-xs text-gray-500">Open cases</p>
           <p className="mt-1 text-xl font-semibold text-gray-900">{stats.openCases}</p>
         </div>
+      </section>
+
+      {/* Plan usage meter: events consumed vs cap for the current period. */}
+      <section>
+        <UsageMeterCard meter={usage} />
       </section>
 
       <p className="text-sm text-gray-500">
